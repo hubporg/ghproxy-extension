@@ -1,7 +1,7 @@
 # GitHub Accelerator - GitHub 下载加速器
 
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=google-chrome)](https://chrome.google.com/webstore)
-[![GitHub](https://img.shields.io/github/license/akams-cn/github-accelerator)](LICENSE)
+
+[![GitHub](https://img.shields.io/github/license/hubporg/ghproxy-extension)](LICENSE)
 
 智能 GitHub 下载加速器 - 302 重定向模式 · IDM 完美兼容
 
