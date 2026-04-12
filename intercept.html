@@ -13,23 +13,32 @@
     }
 
     body {
-      width: 380px;
-      min-height: 400px;
+      width: 100%;
+      min-width: 320px;
+      min-height: 100vh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background: #ffffff;
       color: #333;
+      display: flex;
+      flex-direction: column;
     }
 
     .header {
-      padding: 20px 24px 16px;
+      padding: 24px 20px 20px;
       border-bottom: 1px solid #eaeaea;
     }
 
     .title {
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 700;
       text-align: center;
       margin-bottom: 8px;
+    }
+
+    @media (min-width: 768px) {
+      .title {
+        font-size: 28px;
+      }
     }
 
     .title .normal {
@@ -41,14 +50,30 @@
     }
 
     .subtitle {
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
       text-align: center;
       line-height: 1.5;
     }
 
+    @media (min-width: 768px) {
+      .subtitle {
+        font-size: 13px;
+      }
+    }
+
     .content {
-      padding: 20px 24px;
+      flex: 1;
+      padding: 20px;
+    }
+
+    @media (min-width: 768px) {
+      .content {
+        padding: 24px;
+        max-width: 600px;
+        margin: 0 auto;
+        width: 100%;
+      }
     }
 
     .section {
@@ -74,18 +99,32 @@
     }
 
     .info-label {
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
       margin-bottom: 6px;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    @media (min-width: 768px) {
+      .info-label {
+        font-size: 12px;
+      }
     }
 
     .info-url {
-      font-size: 12px;
+      font-size: 11px;
       color: #333;
       word-break: break-all;
       line-height: 1.5;
       font-family: 'Consolas', 'Monaco', monospace;
+    }
+
+    @media (min-width: 768px) {
+      .info-url {
+        font-size: 12px;
+      }
     }
 
     .button-group {
@@ -94,9 +133,15 @@
       margin-bottom: 16px;
     }
 
+    @media (max-width: 480px) {
+      .button-group {
+        flex-direction: column;
+      }
+    }
+
     .btn {
       flex: 1;
-      padding: 10px 16px;
+      padding: 12px 16px;
       border: none;
       border-radius: 6px;
       font-size: 14px;
@@ -108,6 +153,12 @@
       justify-content: center;
       gap: 6px;
       text-decoration: none;
+    }
+
+    @media (max-width: 480px) {
+      .btn {
+        padding: 14px 16px;
+      }
     }
 
     .btn-primary {
@@ -175,15 +226,34 @@
       line-height: 1.5;
     }
 
+    .option-hint {
+      margin-left: 24px;
+      font-size: 11px;
+      color: #888;
+      line-height: 1.4;
+    }
+
+    @media (min-width: 768px) {
+      .option-hint {
+        font-size: 12px;
+      }
+    }
+
     .notice {
       background: #fff8e1;
       border-left: 4px solid #ffc107;
       padding: 12px 14px;
       margin-top: 16px;
       border-radius: 4px;
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
       line-height: 1.6;
+    }
+
+    @media (min-width: 768px) {
+      .notice {
+        font-size: 12px;
+      }
     }
 
     .notice-icon {
@@ -192,11 +262,17 @@
     }
 
     .footer {
-      padding: 16px 24px;
+      padding: 16px 20px;
       text-align: center;
       font-size: 11px;
       color: #999;
       border-top: 1px solid #eaeaea;
+    }
+
+    @media (min-width: 768px) {
+      .footer {
+        padding: 16px 24px;
+      }
     }
 
     .footer a {
@@ -227,6 +303,45 @@
     .hidden {
       display: none;
     }
+
+    .location-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 12px;
+      margin-bottom: 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .location-status-cn {
+      background: #e3f9e5;
+      color: #1a7f37;
+      border: 1px solid #2da44e;
+    }
+
+    .location-status-global {
+      background: #fff8e1;
+      color: #9a6700;
+      border: 1px solid #f59e0b;
+    }
+
+    .location-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 </head>
 
@@ -240,6 +355,11 @@
 
   <div class="content">
     <div class="section">
+      <div class="location-status" id="location-status">
+        <span class="location-spinner"></span>
+        <span id="location-text">检测代理状态中...</span>
+      </div>
+
       <div class="section-label">
         📥 下载链接：
       </div>
@@ -256,6 +376,9 @@
         <a href="#" class="btn btn-secondary" id="direct-btn">
           🌐 直接访问
         </a>
+        <button type="button" class="btn btn-secondary" id="back-btn" style="flex: 0 0 auto; padding: 10px 16px;">
+          ← 返回
+        </button>
       </div>
 
       <div class="countdown hidden" id="countdown">
@@ -271,18 +394,8 @@
             <strong>始终使用加速链接</strong>
           </label>
         </div>
-        <div class="option-item" style="margin-left: 24px; font-size: 12px; color: #888;">
+        <div class="option-hint">
           启用后，所有 GitHub 下载将自动使用加速链接，不再显示此页面
-        </div>
-
-        <div class="option-item">
-          <input type="checkbox" id="remember-domain" />
-          <label for="remember-domain">
-            记住对该域名的选择
-          </label>
-        </div>
-        <div class="option-item" style="margin-left: 24px; font-size: 12px; color: #888;">
-          对当前域名的所有下载链接应用相同的选择
         </div>
       </div>
 
@@ -296,8 +409,8 @@
   </div>
 
   <div class="footer">
-    302 重定向 + 智能域名转换 · Powered By <a style="color: #0d4bb5;text-decoration: none;"
-      href="https://www.hubp.org">hubp.org</a>
+    302 重定向 + 智能域名转换 · Powered By <a style="color: #0d4bb5;text-decoration: none;" href="https://www.hubp.org"
+      target="_blank">hubp.org</a>
   </div>
 
   <script src="intercept.js"></script>

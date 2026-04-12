@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "GitHub Accelerator",
+    "name": "GitHub Accelerator: GitHub 文件加速",
     "version": "1.0.0",
     "description": "智能 GitHub 下载加速器 - 拦截页面模式，完美兼容 IDM",
     "permissions": [
@@ -8,27 +8,23 @@
         "contextMenus",
         "activeTab",
         "scripting",
-        "tabs"
+        "tabs",
+        "webRequest",
+        "webNavigation"
     ],
     "host_permissions": [
-        "https://api.akams.cn/*",
-        "https://github.com/*",
-        "https://*.github.com/*",
-        "https://codeload.github.com/*",
-        "https://raw.githubusercontent.com/*",
-        "https://gist.githubusercontent.com/*",
         "*://github.com/*",
-        "*://*.github.com/*",
         "*://codeload.github.com/*",
         "*://raw.githubusercontent.com/*",
-        "*://gist.githubusercontent.com/*"
+        "*://gist.githubusercontent.com/*",
+        "https://api.akams.cn/*"
     ],
     "background": {
         "service_worker": "background.js"
     },
     "action": {
         "default_popup": "popup.html",
-        "default_title": "GitHub Accelerator"
+        "default_title": "GitHub Accelerator: GitHub 文件加速"
     },
     "web_accessible_resources": [
         {

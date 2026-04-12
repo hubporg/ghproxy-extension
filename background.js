@@ -78,12 +78,20 @@ async function detectLocation() {
     // 尝试使用 api.ipapi.is
     let data;
     try {
-      const response1 = await fetch('https://api.ipapi.is/');
+      const response1 = await fetch('https://api.ipapi.is/', {
+        headers: {
+          'Origin': 'https://test.hubp.org'
+        }
+      });
       data = await response1.json();
     } catch (error1) {
       // 如果失败，尝试备用 API api.ip.sb/geoip
       console.warn('[GitHub Accelerator] api.ipapi.is 失败，尝试备用 API...', error1);
-      const response2 = await fetch('https://api.ip.sb/geoip');
+      const response2 = await fetch('https://api.ip.sb/geoip', {
+        headers: {
+          'Origin': 'https://test.hubp.org'
+        }
+      });
       data = await response2.json();
     }
 
@@ -129,7 +137,10 @@ async function checkProxyStatus() {
 
         await fetch('https://github.com', {
           method: 'HEAD',
-          signal: controller.signal
+          signal: controller.signal,
+          headers: {
+            'Origin': 'https://test.hubp.org'
+          }
         });
 
         clearTimeout(timeoutId);
@@ -154,7 +165,11 @@ async function checkProxyStatus() {
 }
 
 async function fetchProxyNodes() {
-  const response = await fetch(CONFIG.API_URL);
+  const response = await fetch(CONFIG.API_URL, {
+    headers: {
+      'Origin': 'https://test.hubp.org'
+    }
+  });
   const data = await response.json();
   return data.data || [];
 }
@@ -168,8 +183,13 @@ async function speedTestNodes(nodes) {
   console.log(`[GitHub Accelerator] 将测试 ${testNodes.length} 个节点`);
   console.log(`[GitHub Accelerator] 使用 ${CONFIG.LATENCY_TEST_IMAGE_URLS.length} 个图片资源进行延迟测试`);
 
+  // 在测速前随机选择一个图片，所有节点使用同一个图片测试（保证公平性）
+  const randomIndex = Math.floor(Math.random() * CONFIG.LATENCY_TEST_IMAGE_URLS.length);
+  const selectedImageUrl = CONFIG.LATENCY_TEST_IMAGE_URLS[randomIndex];
+  console.log(`[测速] 随机选择图片 ${randomIndex + 1}/4: ${selectedImageUrl}`);
+
   const promises = testNodes.map(node =>
-    testSingleNodeWithImages(node.url).then(result => {
+    testSingleNodeWithImage(node.url, selectedImageUrl).then(result => {
       console.log(`[GitHub Accelerator] ${node.url}: ${result.latency}ms`);
       return result;
     }).catch(error => {
@@ -188,51 +208,52 @@ async function speedTestNodes(nodes) {
   if (validResults.length > 0) {
     console.log(`[GitHub Accelerator] 最优节点：${validResults[0].url} (${validResults[0].latency}ms)`);
 
-    // 保存所有有效节点到 storage（供用户手动选择）
-    await chrome.storage.local.set({
-      gh_accelerator_node_list: validResults
+    // 清除所有节点的自选标记，然后保存
+    const cleanedResults = validResults.map(node => {
+      const { isUserSelected, ...rest } = node;
+      return rest;
     });
 
-    return validResults[0];
+    // 保存所有有效节点到 storage（供用户手动选择）
+    await chrome.storage.local.set({
+      gh_accelerator_node_list: cleanedResults
+    });
+
+    return cleanedResults[0];
   }
 
   console.log('[GitHub Accelerator] 所有节点失败，使用兜底节点');
   return { url: CONFIG.FALLBACK_NODES[0], latency: -1 };
 }
 
-async function testSingleNodeWithImages(proxyUrl) {
+async function testSingleNodeWithImage(proxyUrl, imageUrl) {
   const startTime = performance.now();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CONFIG.SPEED_TEST_TIMEOUT);
 
   try {
     const proxyBaseUrl = proxyUrl.replace(/\/$/, '');
+    const testUrl = `${proxyBaseUrl}/${imageUrl}`;
 
-    const imagePromises = CONFIG.LATENCY_TEST_IMAGE_URLS.map(imageUrl => {
-      const testUrl = `${proxyBaseUrl}/${imageUrl}`;
-      return fetch(testUrl, {
-        method: 'HEAD',
-        signal: controller.signal,
-        cache: 'no-cache'
-      }).then(response => {
-        if (!response.ok) throw new Error('Image fetch failed');
-        return { success: true, url: proxyUrl };
-      });
+    const response = await fetch(testUrl, {
+      method: 'HEAD',
+      signal: controller.signal,
+      cache: 'no-cache',
+      headers: {
+        'Origin': 'https://test.hubp.org'
+      }
     });
 
-    const results = await Promise.allSettled(imagePromises);
-    const successfulCount = results.filter(r => r.status === 'fulfilled').length;
-
-    if (successfulCount === 0) {
-      throw new Error('No images loaded successfully');
+    if (!response.ok) {
+      throw new Error('Image fetch failed');
     }
 
     const latency = Math.round(performance.now() - startTime);
     return {
       url: proxyUrl,
       latency: latency,
-      successfulCount: successfulCount,
-      totalCount: CONFIG.LATENCY_TEST_IMAGE_URLS.length
+      successfulCount: 1,
+      totalCount: 1
     };
   } finally {
     clearTimeout(timeoutId);
@@ -276,12 +297,39 @@ function setupWebRequestListener() {
   let currentProxyUrl = null;
   let currentLocation = null;
   let userSelectedNode = false; // 标记用户是否手动选择了节点
+  let cacheExpiryCheckInterval = null;
+  let navigatingToInternceptPage = false; // 防止重复导航到拦截页面的标记
+
+  // 检查缓存是否过期，如果过期则自动重新测速
+  async function checkCacheExpiry() {
+    const cached = await chrome.storage.local.get(CONFIG.CACHE_KEY);
+    if (cached[CONFIG.CACHE_KEY]) {
+      const { timestamp } = cached[CONFIG.CACHE_KEY];
+      const age = Date.now() - timestamp;
+
+      if (age >= CONFIG.CACHE_DURATION) {
+        console.log('[GitHub Accelerator] 缓存已过期，自动重新测速...');
+        userSelectedNode = false; // 清除用户自选标记
+        await clearCache();
+        const newNode = await initBestNode();
+        currentProxyUrl = newNode;
+        console.log('[GitHub Accelerator] 自动更新节点:', currentProxyUrl);
+      } else {
+        const remainingMinutes = Math.round((CONFIG.CACHE_DURATION - age) / 60000);
+        console.log(`[GitHub Accelerator] 缓存未过期，剩余 ${remainingMinutes} 分钟`);
+      }
+    }
+  }
 
   // 从缓存恢复当前代理节点
   chrome.storage.local.get([CONFIG.CACHE_KEY], (result) => {
     if (result[CONFIG.CACHE_KEY]) {
       currentProxyUrl = result[CONFIG.CACHE_KEY].node.url;
       console.log('[GitHub Accelerator] 从缓存恢复代理节点:', currentProxyUrl);
+
+      // 启动缓存过期检查定时器（每 5 分钟检查一次）
+      cacheExpiryCheckInterval = setInterval(checkCacheExpiry, 5 * 60 * 1000);
+      console.log('[GitHub Accelerator] 缓存过期检查定时器已启动（5 分钟）');
     }
 
     // 如果没有缓存，则初始化
@@ -289,6 +337,9 @@ function setupWebRequestListener() {
       initBestNode().then(url => {
         currentProxyUrl = url;
         console.log('[GitHub Accelerator] 重定向服务已启动:', currentProxyUrl);
+        // 启动缓存过期检查定时器
+        cacheExpiryCheckInterval = setInterval(checkCacheExpiry, 5 * 60 * 1000);
+        console.log('[GitHub Accelerator] 缓存过期检查定时器已启动（5 分钟）');
       });
     } else {
       console.log('[GitHub Accelerator] 重定向服务已启动（缓存）:', currentProxyUrl);
@@ -308,95 +359,117 @@ function setupWebRequestListener() {
     checkProxyStatus();
   });
 
-  // 监听标签页更新，检测是否直接访问了 GitHub 下载链接
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    // 只在 URL 变化时检查
-    if (changeInfo.url) {
-      const url = changeInfo.url;
+  console.log('[GitHub Accelerator] ⚠️ tabs.onUpdated 拦截器已禁用（使用 webRequest 代替）');
 
-      // 跳过拦截页面本身
-      if (url.includes('intercept.html')) {
-        return;
+  // 使用 webNavigation 在导航开始前拦截（比 webRequest 更早）
+  chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+    // 只处理主框架
+    if (details.frameId !== 0) {
+      return;
+    }
+
+    const url = details.url;
+
+    // 跳过拦截页面本身（检查 chrome-extension:// 协议的 intercept.html）
+    if (url.startsWith('chrome-extension://') && url.includes('intercept.html')) {
+      console.log('[GitHub Accelerator] 跳过拦截页面本身:', url);
+      // 重置导航标记
+      setTimeout(() => { navigatingToInternceptPage = false; }, 1000);
+      return;
+    }
+
+    // 检查是否是 GitHub 下载链接
+    const isGitHubDownload = (() => {
+      try {
+        const urlObj = new URL(url);
+        const hostname = urlObj.hostname.toLowerCase();
+
+        console.log(`[GitHub Accelerator] 检查 URL: ${url}`);
+        console.log(`[GitHub Accelerator] Hostname: ${hostname}`);
+        console.log(`[GitHub Accelerator] navigatingToInternceptPage: ${navigatingToInternceptPage}`);
+
+        // 必须是 github.com 或其子域名（排除代理域名）
+        if (hostname !== 'github.com' &&
+          !hostname.endsWith('.github.com') &&
+          hostname !== 'codeload.github.com' &&
+          hostname !== 'raw.githubusercontent.com' &&
+          hostname !== 'gist.githubusercontent.com') {
+          console.log(`[GitHub Accelerator] ❌ 非 GitHub 域名，跳过`);
+          return false;
+        }
+
+        // 检查路径模式
+        const matches = CONFIG.URL_PATTERNS.some(pattern => {
+          const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+          return regex.test(url);
+        });
+        console.log(`[GitHub Accelerator] 路径匹配结果：${matches}`);
+        return matches;
+      } catch (e) {
+        console.error('[GitHub Accelerator] URL 解析错误:', e);
+        return false;
       }
+    })();
 
-      // 检查是否是 GitHub 下载链接
-      const isGitHubDownload = CONFIG.URL_PATTERNS.some(pattern => {
-        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-        return regex.test(url);
-      });
+    if (isGitHubDownload && currentProxyUrl && !navigatingToInternceptPage) {
+      console.log(`\n[GitHub Accelerator] ✅ 开始拦截：${url}`);
 
-      if (isGitHubDownload && currentProxyUrl) {
-        console.log(`\n[GitHub Accelerator] 📑 检测到 GitHub 下载链接：${url}`);
+      const transformedUrl = transformUrl(url);
+      if (transformedUrl) {
+        const proxyBaseUrl = currentProxyUrl.replace(/\/$/, '');
+        const acceleratedUrl = `${proxyBaseUrl}/${transformedUrl}`;
 
-        // 提取域名
-        let domain = '';
-        try {
-          domain = new URL(url).hostname;
-        } catch (e) {
-          domain = 'github.com';
-        }
+        // 检查用户偏好
+        chrome.storage.local.get([
+          'gh_accelerator_always_accelerate',
+          'gh_accelerator_disable_session'
+        ], (result) => {
+          if (result.gh_accelerator_disable_session) {
+            console.log(`  ℹ️ 会话临时禁用，不拦截`);
+            return;
+          }
 
-        const transformedUrl = transformUrl(url);
-        if (transformedUrl) {
-          const proxyBaseUrl = currentProxyUrl.replace(/\/$/, '');
-          const acceleratedUrl = `${proxyBaseUrl}/${transformedUrl}`;
+          if (result.gh_accelerator_always_accelerate) {
+            console.log(`  🚀 始终加速模式，直接跳转：${acceleratedUrl}`);
+            navigatingToInternceptPage = true;
+            chrome.tabs.update(details.tabId, { url: acceleratedUrl }, () => {
+              // 导航开始后重置标记
+              setTimeout(() => { navigatingToInternceptPage = false; }, 300);
+            });
+            return;
+          }
 
-          // 检查用户偏好
-          chrome.storage.local.get([
-            'gh_accelerator_always_accelerate',
-            'gh_accelerator_disable_session',
-            'gh_accelerator_domain_preferences'
-          ], (result) => {
-            if (result.gh_accelerator_disable_session) {
-              console.log(`  ℹ️ 会话临时禁用，不拦截`);
-              return;
-            }
-
-            if (result.gh_accelerator_always_accelerate) {
-              console.log(`  🚀 始终加速模式，直接跳转：${acceleratedUrl}`);
-              chrome.tabs.update(tabId, { url: acceleratedUrl });
-              return;
-            }
-
-            if (result.gh_accelerator_domain_preferences) {
-              const domainPref = result.gh_accelerator_domain_preferences[domain];
-              if (domainPref === 'always_accelerate') {
-                console.log(`  🚀 域名偏好加速：${acceleratedUrl}`);
-                chrome.tabs.update(tabId, { url: acceleratedUrl });
-                return;
-              } else if (domainPref === 'always_direct') {
-                console.log(`  ℹ️ 域名偏好直接访问，不拦截`);
-                return;
-              }
-            }
-
-            // 打开拦截页面
-            console.log(`  🚀 打开拦截页面`);
-            const interceptUrl = chrome.runtime.getURL('intercept.html') +
-              '?url=' + encodeURIComponent(url) +
-              '&accel=' + encodeURIComponent(acceleratedUrl);
-            chrome.tabs.update(tabId, { url: interceptUrl });
+          // 打开拦截页面
+          console.log(`  🚀 打开拦截页面`);
+          const interceptUrl = chrome.runtime.getURL('intercept.html') +
+            '?url=' + encodeURIComponent(url) +
+            '&accel=' + encodeURIComponent(acceleratedUrl) +
+            '&referer=' + encodeURIComponent(details.url);
+          navigatingToInternceptPage = true;
+          chrome.tabs.update(details.tabId, { url: interceptUrl }, () => {
+            // 导航开始后重置标记
+            setTimeout(() => { navigatingToInternceptPage = false; }, 300);
           });
-        }
+        });
       }
     }
   });
 
-  console.log('[GitHub Accelerator] ✅ tabs.onUpdated 拦截器已注册');
+  console.log('[GitHub Accelerator] ✅ webNavigation 拦截器已注册');
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'REFRESH_NODE') {
-      // 如果用户手动选择了节点，不要刷新
+      // 如果用户手动选择了节点，先清除自选状态，然后重新测速
       if (userSelectedNode) {
-        console.log('[GitHub Accelerator] 用户已手动选择节点，跳过刷新');
-        sendResponse({ success: false, error: '用户已手动选择节点' });
-        return false;
+        console.log('[GitHub Accelerator] 用户已手动选择节点，清除自选状态并重新测速');
+        userSelectedNode = false;
       }
 
       clearCache().then(() => {
         return initBestNode();
       }).then(newUrl => {
         currentProxyUrl = newUrl;
+        console.log('[GitHub Accelerator] 重新测速完成:', currentProxyUrl);
         sendResponse({ success: true, node: currentProxyUrl });
       });
       return true;

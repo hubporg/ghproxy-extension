@@ -6,20 +6,31 @@
   const urlParams = new URLSearchParams(window.location.search);
   const originalUrl = urlParams.get('url');
   const acceleratedUrl = urlParams.get('accel');
+  const refererUrl = urlParams.get('referer');
+
+  console.log('[Intercept] 初始化参数:');
+  console.log('[Intercept] originalUrl:', originalUrl);
+  console.log('[Intercept] acceleratedUrl:', acceleratedUrl);
+  console.log('[Intercept] refererUrl:', refererUrl);
 
   // DOM 元素
   const originalUrlEl = document.getElementById('original-url');
   const accelerateBtn = document.getElementById('accelerate-btn');
   const directBtn = document.getElementById('direct-btn');
+  const backBtn = document.getElementById('back-btn');
   const timerEl = document.getElementById('timer');
   const countdownEl = document.getElementById('countdown');
   const alwaysAccelerateEl = document.getElementById('always-accelerate');
-  const rememberDomainEl = document.getElementById('remember-domain');
   const disableForSessionEl = document.getElementById('disable-for-session');
   const advancedToggle = document.getElementById('advanced-toggle');
   const advancedContent = document.getElementById('advanced-content');
   const advancedArrow = document.getElementById('advanced-arrow');
   const helpLink = document.getElementById('help-link');
+  const locationStatusEl = document.getElementById('location-status');
+  const locationTextEl = document.getElementById('location-text');
+
+  // 地理位置状态
+  let isProxyEnabled = null; // null: 检测中，true: 已开启代理，false: 未开启代理
 
   // 提取域名
   let currentDomain = '';
@@ -39,6 +50,7 @@
       directBtn.style.display = 'none';
       countdownEl.style.display = 'none';
       document.querySelector('.options').style.display = 'none';
+      locationStatusEl.style.display = 'none';
       return;
     }
 
@@ -49,36 +61,24 @@
     accelerateBtn.href = acceleratedUrl;
     directBtn.href = originalUrl;
 
+    // 检测是否开启代理
+    detectProxyStatus();
+
     // 加载用户偏好设置
     loadUserPreferences();
 
     // 绑定事件
     bindEvents();
-
-    // 检查是否应该自动加速
-    checkAutoAccelerate();
   }
 
   function loadUserPreferences() {
     chrome.storage.local.get([
       'gh_accelerator_always_accelerate',
-      'gh_accelerator_domain_preferences',
       'gh_accelerator_disable_session'
     ], (result) => {
       // 始终加速
       if (result.gh_accelerator_always_accelerate) {
         alwaysAccelerateEl.checked = true;
-      }
-
-      // 域名偏好
-      if (result.gh_accelerator_domain_preferences) {
-        const domainPref = result.gh_accelerator_domain_preferences[currentDomain];
-        if (domainPref === 'always_accelerate') {
-          alwaysAccelerateEl.checked = true;
-        } else if (domainPref === 'always_direct') {
-          // 用户对该域名偏好直接访问
-          directBtn.click();
-        }
       }
 
       // 会话临时禁用
@@ -88,39 +88,119 @@
     });
   }
 
-  function checkAutoAccelerate() {
-    chrome.storage.local.get([
-      'gh_accelerator_always_accelerate',
-      'gh_accelerator_domain_preferences',
-      'gh_accelerator_disable_session'
-    ], (result) => {
-      // 检查是否会话临时禁用
-      if (result.gh_accelerator_disable_session) {
-        // 本次会话禁用，直接访问
-        return;
-      }
+  // 检测是否开启代理
+  function detectProxyStatus() {
+    console.log('[Intercept] 开始检测代理状态...');
 
-      // 检查是否始终加速
-      if (result.gh_accelerator_always_accelerate) {
-        // 始终加速模式
-        startCountdown();
-        return;
-      }
+    // 使用后台 script 的 GET_LOCATION 消息
+    chrome.runtime.sendMessage({ type: 'GET_LOCATION' }, (response) => {
+      console.log('[Intercept] 收到位置响应:', response);
 
-      // 检查域名偏好
-      if (result.gh_accelerator_domain_preferences) {
-        const domainPref = result.gh_accelerator_domain_preferences[currentDomain];
-        if (domainPref === 'always_accelerate') {
-          startCountdown();
-        }
+      if (response && response.location) {
+        const location = response.location;
+        // 如果不在大陆（isChinaMainland === false），说明开启了代理
+        isProxyEnabled = location.isChinaMainland === false;
+
+        console.log('[Intercept] 代理状态:', isProxyEnabled ? '已开启' : '未开启');
+        updateProxyStatus(location);
+        checkAutoAccelerate();
+      } else {
+        // 检测失败，默认认为未开启代理
+        console.warn('[Intercept] 位置检测失败，默认未开启代理');
+        isProxyEnabled = false;
+        updateProxyStatus({ country: 'unknown', isChinaMainland: true });
+        checkAutoAccelerate();
       }
     });
   }
 
+  function updateProxyStatus(location) {
+    const countryNames = {
+      'CN': '🇨🇳 中国大陆',
+      'HK': '🇭🇰 中国香港',
+      'TW': '🇹🇼 中国台湾',
+      'US': '🇺🇸 美国',
+      'JP': '🇯🇵 日本',
+      'KR': '🇰🇷 韩国',
+      'SG': '🇸🇬 新加坡',
+      'DE': '🇩🇪 德国',
+      'GB': '🇬🇧 英国',
+      'FR': '🇫🇷 法国'
+    };
+
+    const countryName = countryNames[location.country] || `🌐 ${location.country}`;
+    const hasProxy = isProxyEnabled === true;
+
+    locationStatusEl.className = 'location-status ' + (hasProxy ? 'location-status-cn' : 'location-status-global');
+
+    if (hasProxy) {
+      locationTextEl.textContent = `${countryName} · 已开启代理 · 请手动选择`;
+      locationStatusEl.style.display = 'flex';
+    } else {
+      locationTextEl.textContent = `${countryName} · 未开启代理 · 将自动加速`;
+      locationStatusEl.style.display = 'flex';
+    }
+  }
+
+  function checkAutoAccelerate() {
+    console.log('[Intercept] === checkAutoAccelerate 调用 ===');
+    console.log('[Intercept] isProxyEnabled:', isProxyEnabled);
+
+    // 如果用户开启了代理，不启动倒计时，需要用户手动选择
+    if (isProxyEnabled === true) {
+      console.log('[Intercept] 已开启代理，不启动倒计时');
+      countdownEl.classList.add('hidden');
+      return;
+    }
+
+    // 未开启代理（大陆用户直连），检查用户偏好
+    chrome.storage.local.get([
+      'gh_accelerator_always_accelerate',
+      'gh_accelerator_disable_session',
+      'gh_accelerator_domain_preferences'
+    ], (result) => {
+      console.log('[Intercept] 用户偏好:', result);
+
+      // 检查是否会话临时禁用
+      if (result.gh_accelerator_disable_session) {
+        console.log('[Intercept] 会话临时禁用，直接访问原始链接');
+        window.location.href = originalUrl;
+        return;
+      }
+
+      // 检查域名特定偏好
+      const preferences = result.gh_accelerator_domain_preferences || {};
+      const domainPref = preferences[currentDomain];
+      console.log('[Intercept] 域名偏好:', domainPref);
+      
+      if (domainPref === 'always_accelerate') {
+        console.log('[Intercept] 域名偏好为始终加速，启动倒计时');
+        startCountdown();
+        return;
+      } else if (domainPref === 'always_direct') {
+        console.log('[Intercept] 域名偏好为始终直接访问，跳转到原始链接');
+        window.location.href = originalUrl;
+        return;
+      }
+
+      // 检查全局始终加速
+      if (result.gh_accelerator_always_accelerate) {
+        console.log('[Intercept] 全局始终加速，启动倒计时');
+        startCountdown();
+        return;
+      }
+
+      // 默认模式：不启动倒计时，用户手动选择
+      console.log('[Intercept] 默认模式，等待用户手动选择');
+      countdownEl.classList.add('hidden');
+    });
+  }
+
   function bindEvents() {
-    // 加速按钮点击
+    // 使用加速链接按钮点击
     accelerateBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      console.log('[Intercept] 用户选择使用加速链接');
       saveUserPreferences();
       window.location.href = acceleratedUrl;
     });
@@ -128,8 +208,27 @@
     // 直接访问按钮点击
     directBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      console.log('[Intercept] 用户选择直接访问');
       saveUserPreferences();
       window.location.href = originalUrl;
+    });
+
+    // 返回按钮点击
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      console.log('[Intercept] 用户点击返回');
+
+      // 使用浏览器历史返回，而不是直接跳转
+      if (window.history.length > 1) {
+        console.log('[Intercept] 使用 history.back() 返回上一页');
+        window.history.back();
+      } else if (refererUrl) {
+        console.log('[Intercept] 无历史记录，跳转到 refererUrl:', refererUrl);
+        window.location.href = refererUrl;
+      } else {
+        console.log('[Intercept] 无历史记录和 referer，跳转到 GitHub 首页');
+        window.location.href = 'https://github.com';
+      }
     });
 
     // 始终加速复选框
@@ -145,7 +244,9 @@
         // 清除域名特定偏好
         removeDomainPreference();
 
-        startCountdown();
+        console.log('[Intercept] 用户勾选始终加速，立即跳转');
+        // 立即跳转到加速链接，不再显示此页面
+        window.location.href = acceleratedUrl;
       } else {
         chrome.storage.local.remove('gh_accelerator_always_accelerate');
         stopCountdown();
@@ -232,6 +333,18 @@
   let countdownTimer = null;
 
   function startCountdown() {
+    // 先停止现有的倒计时（如果存在）
+    stopCountdown();
+    
+    console.log('[Intercept] === 开始倒计时 ===');
+    console.log('[Intercept] acceleratedUrl:', acceleratedUrl);
+    
+    // 验证 acceleratedUrl 是否有效
+    if (!acceleratedUrl) {
+      console.error('[Intercept] acceleratedUrl 为空！无法跳转');
+      return;
+    }
+
     countdownEl.classList.remove('hidden');
     let seconds = 10;
     timerEl.textContent = seconds;
@@ -241,7 +354,15 @@
       timerEl.textContent = seconds;
 
       if (seconds <= 0) {
-        stopCountdown();
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        console.log('[Intercept] === 倒计时结束，跳转 ===');
+        console.log('[Intercept] 目标 URL:', acceleratedUrl);
+        
+        // 先隐藏倒计时区域
+        countdownEl.classList.add('hidden');
+        
+        // 使用 location.href 跳转
         window.location.href = acceleratedUrl;
       }
     }, 1000);
