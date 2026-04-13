@@ -172,7 +172,7 @@
       const preferences = result.gh_accelerator_domain_preferences || {};
       const domainPref = preferences[currentDomain];
       console.log('[Intercept] 域名偏好:', domainPref);
-      
+
       if (domainPref === 'always_accelerate') {
         console.log('[Intercept] 域名偏好为始终加速，启动倒计时');
         startCountdown();
@@ -199,18 +199,19 @@
   function bindEvents() {
     // 使用加速链接按钮点击
     accelerateBtn.addEventListener('click', (e) => {
-      e.preventDefault();
       console.log('[Intercept] 用户选择使用加速链接');
+      console.log('[Intercept] 加速链接:', acceleratedUrl);
       saveUserPreferences();
-      window.location.href = acceleratedUrl;
+      // 不阻止默认行为，让浏览器自然跳转（IDM 可以捕获）
+      // href 已经在 init() 中设置
     });
 
     // 直接访问按钮点击
     directBtn.addEventListener('click', (e) => {
-      e.preventDefault();
       console.log('[Intercept] 用户选择直接访问');
       saveUserPreferences();
-      window.location.href = originalUrl;
+      // 不阻止默认行为，让浏览器自然跳转
+      // href 已经在 init() 中设置
     });
 
     // 返回按钮点击
@@ -250,16 +251,6 @@
       } else {
         chrome.storage.local.remove('gh_accelerator_always_accelerate');
         stopCountdown();
-      }
-    });
-
-    // 记住域名复选框
-    rememberDomainEl.addEventListener('change', (e) => {
-      if (e.target.checked) {
-        // 询问用户要记住什么选择
-        showDomainPreferenceDialog();
-      } else {
-        removeDomainPreference();
       }
     });
 
@@ -335,10 +326,10 @@
   function startCountdown() {
     // 先停止现有的倒计时（如果存在）
     stopCountdown();
-    
+
     console.log('[Intercept] === 开始倒计时 ===');
     console.log('[Intercept] acceleratedUrl:', acceleratedUrl);
-    
+
     // 验证 acceleratedUrl 是否有效
     if (!acceleratedUrl) {
       console.error('[Intercept] acceleratedUrl 为空！无法跳转');
@@ -358,10 +349,10 @@
         countdownTimer = null;
         console.log('[Intercept] === 倒计时结束，跳转 ===');
         console.log('[Intercept] 目标 URL:', acceleratedUrl);
-        
+
         // 先隐藏倒计时区域
         countdownEl.classList.add('hidden');
-        
+
         // 使用 location.href 跳转
         window.location.href = acceleratedUrl;
       }

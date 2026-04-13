@@ -432,6 +432,7 @@ function setupWebRequestListener() {
           if (result.gh_accelerator_always_accelerate) {
             console.log(`  🚀 始终加速模式，直接跳转：${acceleratedUrl}`);
             navigatingToInternceptPage = true;
+            // 使用 replace 而不是 update，避免在历史中留下记录
             chrome.tabs.update(details.tabId, { url: acceleratedUrl }, () => {
               // 导航开始后重置标记
               setTimeout(() => { navigatingToInternceptPage = false; }, 300);
