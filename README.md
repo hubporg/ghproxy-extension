@@ -1,6 +1,12 @@
 # GitHub Accelerator - GitHub 下载加速器
 
-<img src=".icons/icon.png" width="32" height="32" alt="icon"> <img src=".icons/hubp.png" width="32" height="32" alt="hubp">
+<div style="display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap;">
+  <img src=".icons/icon.png" alt="icon" style="width: 128px; height: auto; max-width: 100%;">
+  <span style="font-size: 84px; color: #666;">Made by</span>
+  <a href="https://www.hubp.org" target="_blank">
+    <img src=".icons/hubp.png" alt="hubp" style="width: 128px; height: auto; max-width: 100%;">
+  </a>
+</div>
 
 [![GitHub](https://img.shields.io/github/license/hubporg/ghproxy-extension)](LICENSE)
 

@@ -1,15 +1,15 @@
+import './browser-polyfill.js';
+
 const CONFIG = {
   API_URL: 'https://api.akams.cn/github',
   CACHE_KEY: 'gh_accelerator_best_node',
   CACHE_DURATION: 2 * 60 * 60 * 1000,
   SPEED_TEST_COUNT: 'all',
   SPEED_TEST_TIMEOUT: 5000,
-  LATENCY_TEST_IMAGE_URLS: [
-    'https://raw.githubusercontent.com/microsoft/terminal/refs/heads/main/res/terminal/images/SmallTile.scale-125.png',
-    'https://raw.githubusercontent.com/microsoft/vscode/refs/heads/main/resources/linux/code.png',
-    'https://raw.githubusercontent.com/facebook/react/refs/heads/main/fixtures/dom/public/favicon.ico',
-    'https://raw.githubusercontent.com/python/cpython/refs/heads/main/PC/icons/python.ico'
-  ],
+  INTEGRITY_TEST: {
+    localIcon: 'icons/icon128.png',
+    remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png'
+  },
   FALLBACK_NODES: [
     'https://gh.llkk.cc',
     'https://gh.dpik.top',
@@ -164,6 +164,90 @@ async function checkProxyStatus() {
   }
 }
 
+// 计算本地 icon 的 SHA-256 哈希值
+async function calculateLocalIconHash() {
+  try {
+    const localUrl = browser.runtime.getURL(CONFIG.INTEGRITY_TEST.localIcon);
+    const response = await fetch(localUrl, {
+      cache: 'no-cache'
+    });
+
+    if (!response.ok) {
+      throw new Error('无法加载本地 icon');
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    CONFIG.INTEGRITY_TEST.localHash = hash;
+    CONFIG.INTEGRITY_TEST.localIconSize = arrayBuffer.byteLength;
+    console.log(`[完整性检查] 本地 icon 哈希: ${hash}`);
+    console.log(`[完整性检查] 本地 icon 大小: ${arrayBuffer.byteLength} 字节`);
+    return hash;
+  } catch (error) {
+    console.error('[完整性检查] 计算本地 icon 哈希失败:', error);
+    return null;
+  }
+}
+
+// 验证远程 icon 完整性
+async function verifyRemoteIconHash(proxyUrl) {
+  try {
+    const localHash = CONFIG.INTEGRITY_TEST.localHash || await calculateLocalIconHash();
+    if (!localHash) {
+      throw new Error('本地 icon 哈希未初始化');
+    }
+
+    const proxyBaseUrl = proxyUrl.replace(/\/$/, '');
+    const remoteIconUrl = `${proxyBaseUrl}/${CONFIG.INTEGRITY_TEST.remoteIconUrl}`;
+
+    const response = await fetch(remoteIconUrl, {
+      method: 'GET',
+      cache: 'no-cache',
+      signal: AbortSignal.timeout(CONFIG.SPEED_TEST_TIMEOUT)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const contentType = response.headers.get('Content-Type');
+    if (!contentType || !contentType.includes('image')) {
+      throw new Error(`异常 Content-Type: ${contentType}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const remoteHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    console.log(`[完整性检查] 远程 icon 哈希: ${remoteHash}`);
+
+    if (remoteHash === localHash) {
+      console.log('[完整性检查] ✅ 验证通过：代理返回内容完整正确');
+      return {
+        verified: true,
+        hash: remoteHash,
+        size: arrayBuffer.byteLength
+      };
+    } else {
+      console.warn('[完整性检查] ❌ 验证失败：哈希不匹配！');
+      console.warn(`  期望: ${localHash}`);
+      console.warn(`  实际: ${remoteHash}`);
+      return {
+        verified: false,
+        localHash: localHash,
+        remoteHash: remoteHash
+      };
+    }
+  } catch (error) {
+    console.error('[完整性检查] 验证远程 icon 失败:', error);
+    return { verified: false, error: error.message };
+  }
+}
+
 async function fetchProxyNodes() {
   const response = await fetch(CONFIG.API_URL, {
     headers: {
@@ -181,16 +265,13 @@ async function speedTestNodes(nodes) {
     : nodes.slice(0, CONFIG.SPEED_TEST_COUNT);
 
   console.log(`[GitHub Accelerator] 将测试 ${testNodes.length} 个节点`);
-  console.log(`[GitHub Accelerator] 使用 ${CONFIG.LATENCY_TEST_IMAGE_URLS.length} 个图片资源进行延迟测试`);
 
-  // 在测速前随机选择一个图片，所有节点使用同一个图片测试（保证公平性）
-  const randomIndex = Math.floor(Math.random() * CONFIG.LATENCY_TEST_IMAGE_URLS.length);
-  const selectedImageUrl = CONFIG.LATENCY_TEST_IMAGE_URLS[randomIndex];
-  console.log(`[测速] 随机选择图片 ${randomIndex + 1}/4: ${selectedImageUrl}`);
+  await calculateLocalIconHash();
+  console.log(`[完整性检查] 使用远程检测图片: ${CONFIG.INTEGRITY_TEST.remoteIconUrl}`);
 
   const promises = testNodes.map(node =>
-    testSingleNodeWithImage(node.url, selectedImageUrl).then(result => {
-      console.log(`[GitHub Accelerator] ${node.url}: ${result.latency}ms`);
+    testSingleNode(node.url).then(result => {
+      console.log(`[GitHub Accelerator] ${node.url}: ${result.latency}ms${result.verified ? ' ✅' : ' ❌'}`);
       return result;
     }).catch(error => {
       console.warn(`[GitHub Accelerator] ${node.url} 测速失败:`, error);
@@ -202,20 +283,18 @@ async function speedTestNodes(nodes) {
     .then(settled => settled.map(s => s.value));
 
   const validResults = results
-    .filter(r => r !== null)
+    .filter(r => r !== null && r.verified)
     .sort((a, b) => a.latency - b.latency);
 
   if (validResults.length > 0) {
     console.log(`[GitHub Accelerator] 最优节点：${validResults[0].url} (${validResults[0].latency}ms)`);
 
-    // 清除所有节点的自选标记，然后保存
     const cleanedResults = validResults.map(node => {
       const { isUserSelected, ...rest } = node;
       return rest;
     });
 
-    // 保存所有有效节点到 storage（供用户手动选择）
-    await chrome.storage.local.set({
+    await browser.storage.local.set({
       gh_accelerator_node_list: cleanedResults
     });
 
@@ -226,17 +305,17 @@ async function speedTestNodes(nodes) {
   return { url: CONFIG.FALLBACK_NODES[0], latency: -1 };
 }
 
-async function testSingleNodeWithImage(proxyUrl, imageUrl) {
+async function testSingleNode(proxyUrl) {
   const startTime = performance.now();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), CONFIG.SPEED_TEST_TIMEOUT);
 
   try {
     const proxyBaseUrl = proxyUrl.replace(/\/$/, '');
-    const testUrl = `${proxyBaseUrl}/${imageUrl}`;
+    const testUrl = `${proxyBaseUrl}/${CONFIG.INTEGRITY_TEST.remoteIconUrl}`;
 
     const response = await fetch(testUrl, {
-      method: 'HEAD',
+      method: 'GET',
       signal: controller.signal,
       cache: 'no-cache',
       headers: {
@@ -245,15 +324,37 @@ async function testSingleNodeWithImage(proxyUrl, imageUrl) {
     });
 
     if (!response.ok) {
-      throw new Error('Image fetch failed');
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const contentType = response.headers.get('Content-Type');
+    if (!contentType || !contentType.includes('image')) {
+      throw new Error(`异常 Content-Type: ${contentType}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const remoteHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const localHash = CONFIG.INTEGRITY_TEST.localHash;
+    const verified = localHash && remoteHash === localHash;
+
+    if (!verified) {
+      console.warn(`[测速] ⚠️ ${proxyUrl} 哈希验证失败`);
+      console.warn(`  期望: ${localHash}`);
+      console.warn(`  实际: ${remoteHash}`);
     }
 
     const latency = Math.round(performance.now() - startTime);
     return {
       url: proxyUrl,
       latency: latency,
-      successfulCount: 1,
-      totalCount: 1
+      successfulCount: verified ? 1 : 0,
+      totalCount: 1,
+      verified: verified,
+      imageSize: arrayBuffer.byteLength,
+      hash: remoteHash
     };
   } finally {
     clearTimeout(timeoutId);
@@ -261,7 +362,7 @@ async function testSingleNodeWithImage(proxyUrl, imageUrl) {
 }
 
 async function getCachedNode() {
-  const cached = await chrome.storage.local.get(CONFIG.CACHE_KEY);
+  const cached = await browser.storage.local.get(CONFIG.CACHE_KEY);
   if (cached[CONFIG.CACHE_KEY]) {
     const { node, timestamp } = cached[CONFIG.CACHE_KEY];
     const age = Date.now() - timestamp;
@@ -278,7 +379,7 @@ async function getCachedNode() {
 }
 
 async function setCachedNode(node) {
-  await chrome.storage.local.set({
+  await browser.storage.local.set({
     [CONFIG.CACHE_KEY]: {
       node,
       timestamp: Date.now()
@@ -289,20 +390,21 @@ async function setCachedNode(node) {
 }
 
 async function clearCache() {
-  await chrome.storage.local.remove(CONFIG.CACHE_KEY);
+  await browser.storage.local.remove(CONFIG.CACHE_KEY);
   console.log('[GitHub Accelerator] 缓存已清除');
 }
 
 function setupWebRequestListener() {
   let currentProxyUrl = null;
   let currentLocation = null;
-  let userSelectedNode = false; // 标记用户是否手动选择了节点
+  let userSelectedNode = false;
   let cacheExpiryCheckInterval = null;
-  let navigatingToInternceptPage = false; // 防止重复导航到拦截页面的标记
+  let navigatingToInternceptPage = false;
+  let skipInterceptUrls = new Map(); // URL -> 过期时间戳
 
   // 检查缓存是否过期，如果过期则自动重新测速
   async function checkCacheExpiry() {
-    const cached = await chrome.storage.local.get(CONFIG.CACHE_KEY);
+    const cached = await browser.storage.local.get(CONFIG.CACHE_KEY);
     if (cached[CONFIG.CACHE_KEY]) {
       const { timestamp } = cached[CONFIG.CACHE_KEY];
       const age = Date.now() - timestamp;
@@ -322,7 +424,7 @@ function setupWebRequestListener() {
   }
 
   // 从缓存恢复当前代理节点
-  chrome.storage.local.get([CONFIG.CACHE_KEY], (result) => {
+  browser.storage.local.get([CONFIG.CACHE_KEY]).then((result) => {
     if (result[CONFIG.CACHE_KEY]) {
       currentProxyUrl = result[CONFIG.CACHE_KEY].node.url;
       console.log('[GitHub Accelerator] 从缓存恢复代理节点:', currentProxyUrl);
@@ -362,7 +464,7 @@ function setupWebRequestListener() {
   console.log('[GitHub Accelerator] ⚠️ tabs.onUpdated 拦截器已禁用（使用 webRequest 代替）');
 
   // 使用 webNavigation 在导航开始前拦截（比 webRequest 更早）
-  chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  browser.webNavigation.onBeforeNavigate.addListener((details) => {
     // 只处理主框架
     if (details.frameId !== 0) {
       return;
@@ -412,6 +514,16 @@ function setupWebRequestListener() {
     })();
 
     if (isGitHubDownload && currentProxyUrl && !navigatingToInternceptPage) {
+      // 检查是否在跳过拦截期内
+      const now = Date.now();
+      const skipExpiry = skipInterceptUrls.get(url);
+      if (skipExpiry && now < skipExpiry) {
+        console.log(`[GitHub Accelerator] ⏭️ 在跳过期内，不拦截：${url}`);
+        return;
+      } else if (skipExpiry && now >= skipExpiry) {
+        skipInterceptUrls.delete(url);
+      }
+
       console.log(`\n[GitHub Accelerator] ✅ 开始拦截：${url}`);
 
       const transformedUrl = transformUrl(url);
@@ -420,10 +532,10 @@ function setupWebRequestListener() {
         const acceleratedUrl = `${proxyBaseUrl}/${transformedUrl}`;
 
         // 检查用户偏好
-        chrome.storage.local.get([
+        browser.storage.local.get([
           'gh_accelerator_always_accelerate',
           'gh_accelerator_disable_session'
-        ], (result) => {
+        ]).then((result) => {
           if (result.gh_accelerator_disable_session) {
             console.log(`  ℹ️ 会话临时禁用，不拦截`);
             return;
@@ -432,9 +544,7 @@ function setupWebRequestListener() {
           if (result.gh_accelerator_always_accelerate) {
             console.log(`  🚀 始终加速模式，直接跳转：${acceleratedUrl}`);
             navigatingToInternceptPage = true;
-            // 使用 replace 而不是 update，避免在历史中留下记录
-            chrome.tabs.update(details.tabId, { url: acceleratedUrl }, () => {
-              // 导航开始后重置标记
+            browser.tabs.update(details.tabId, { url: acceleratedUrl }).then(() => {
               setTimeout(() => { navigatingToInternceptPage = false; }, 300);
             });
             return;
@@ -442,13 +552,12 @@ function setupWebRequestListener() {
 
           // 打开拦截页面
           console.log(`  🚀 打开拦截页面`);
-          const interceptUrl = chrome.runtime.getURL('intercept.html') +
+          const interceptUrl = browser.runtime.getURL('intercept.html') +
             '?url=' + encodeURIComponent(url) +
             '&accel=' + encodeURIComponent(acceleratedUrl) +
             '&referer=' + encodeURIComponent(details.url);
           navigatingToInternceptPage = true;
-          chrome.tabs.update(details.tabId, { url: interceptUrl }, () => {
-            // 导航开始后重置标记
+          browser.tabs.update(details.tabId, { url: interceptUrl }).then(() => {
             setTimeout(() => { navigatingToInternceptPage = false; }, 300);
           });
         });
@@ -458,7 +567,7 @@ function setupWebRequestListener() {
 
   console.log('[GitHub Accelerator] ✅ webNavigation 拦截器已注册');
 
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'REFRESH_NODE') {
       // 如果用户手动选择了节点，先清除自选状态，然后重新测速
       if (userSelectedNode) {
@@ -484,7 +593,7 @@ function setupWebRequestListener() {
         userSelectedNode = true; // 标记用户已手动选择
 
         // 保存到缓存
-        chrome.storage.local.set({
+        browser.storage.local.set({
           [CONFIG.CACHE_KEY]: {
             node: node,
             timestamp: Date.now()
@@ -507,7 +616,7 @@ function setupWebRequestListener() {
     }
 
     if (message.type === 'GET_CACHE_INFO') {
-      chrome.storage.local.get(CONFIG.CACHE_KEY).then(cached => {
+      browser.storage.local.get(CONFIG.CACHE_KEY).then(cached => {
         sendResponse({ data: cached[CONFIG.CACHE_KEY] || null });
       });
       return true;
@@ -515,6 +624,17 @@ function setupWebRequestListener() {
 
     if (message.type === 'GET_LOCATION') {
       sendResponse({ location: currentLocation });
+      return false;
+    }
+
+    if (message.type === 'SKIP_INTERCEPT') {
+      const url = message.url;
+      if (url) {
+        const skipDuration = message.duration || 10000; // 默认 10 秒
+        skipInterceptUrls.set(url, Date.now() + skipDuration);
+        console.log(`[GitHub Accelerator] 已添加跳过缓存：${url} (${skipDuration / 1000}s)`);
+      }
+      sendResponse({ success: true });
       return false;
     }
   });
@@ -547,7 +667,7 @@ async function initBestNode() {
   return bestNode.url || CONFIG.FALLBACK_NODES[0];
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+browser.runtime.onInstalled.addListener(() => {
   console.log('[GitHub Accelerator] 扩展已安装/更新');
   initBestNode().catch(console.error);
   createContextMenus();
@@ -559,13 +679,13 @@ setupContextMenuHandler();
 console.log('[GitHub Accelerator] 后台服务已启动');
 
 function createContextMenus() {
-  chrome.contextMenus.create({
+  browser.contextMenus.create({
     id: 'github-accelerator-copy',
     title: '🚀 复制 GitHub 加速链接',
     contexts: ['link', 'selection']
   });
 
-  chrome.contextMenus.create({
+  browser.contextMenus.create({
     id: 'github-accelerator-open',
     title: '⚡ 打开 GitHub 加速链接（新标签页）',
     contexts: ['link', 'selection']
@@ -575,10 +695,10 @@ function createContextMenus() {
 }
 
 function setupContextMenuHandler() {
-  chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  browser.contextMenus.onClicked.addListener(async (info, tab) => {
     // 从缓存获取当前代理节点
     const cacheKey = 'gh_accelerator_best_node';
-    const result = await chrome.storage.local.get([cacheKey]);
+    const result = await browser.storage.local.get([cacheKey]);
 
     let proxyUrl;
     if (result[cacheKey]) {
@@ -615,7 +735,7 @@ function setupContextMenuHandler() {
         break;
 
       case 'github-accelerator-open':
-        chrome.tabs.create({ url: acceleratedUrl });
+        browser.tabs.create({ url: acceleratedUrl });
         showNotification(tab.id, '⚡ 正在打开加速链接...', acceleratedUrl);
         break;
     }
@@ -642,7 +762,7 @@ async function copyToClipboard(text) {
 }
 
 function showNotification(tabId, message, details) {
-  chrome.scripting.executeScript({
+  browser.scripting.executeScript({
     target: { tabId },
     func: (msg, detail) => {
       const notification = document.createElement('div');

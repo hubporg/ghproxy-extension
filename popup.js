@@ -19,12 +19,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shouldAccelerate = e.target.checked;
 
     if (shouldAccelerate) {
-      await chrome.storage.local.set({
+      await browser.storage.local.set({
         gh_accelerator_always_accelerate: true
       });
       console.log('[Popup] 已启用始终加速');
     } else {
-      await chrome.storage.local.remove('gh_accelerator_always_accelerate');
+      await browser.storage.local.remove('gh_accelerator_always_accelerate');
       console.log('[Popup] 已禁用始终加速');
     }
   });
@@ -35,15 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusText.textContent = '测速中（将清除自选状态）';
 
     try {
-      await new Promise((resolve, reject) => {
-        chrome.runtime.sendMessage({ type: 'REFRESH_NODE' }, (response) => {
-          if (response && response.success) {
-            resolve(response);
-          } else {
-            reject(new Error('刷新失败'));
-          }
-        });
-      });
+      const response = await browser.runtime.sendMessage({ type: 'REFRESH_NODE' });
+      if (!response || !response.success) {
+        throw new Error('刷新失败');
+      }
 
       await loadNodeInfo();
       statusText.textContent = '测速完成';
@@ -57,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // 3 秒后恢复状态文本
       setTimeout(async () => {
         if (speedtestBtn.disabled === false) {
-          const cached = await chrome.storage.local.get(['gh_accelerator_best_node']);
+          const cached = await browser.storage.local.get(['gh_accelerator_best_node']);
           if (cached.gh_accelerator_best_node) {
             statusText.textContent = '运行中';
             statusText.style.color = '#2e7d32';
@@ -91,7 +86,7 @@ async function loadNodeInfo() {
 
   try {
     // 获取缓存的节点列表和当前选择的节点
-    const cached = await chrome.storage.local.get(['gh_accelerator_best_node', 'gh_accelerator_node_list']);
+    const cached = await browser.storage.local.get(['gh_accelerator_best_node', 'gh_accelerator_node_list']);
     const currentData = cached.gh_accelerator_best_node;
     const nodeList = cached.gh_accelerator_node_list;
 
@@ -159,7 +154,7 @@ async function loadNodeInfo() {
             };
 
             // 更新当前选择的节点
-            await chrome.storage.local.set({
+            await browser.storage.local.set({
               gh_accelerator_best_node: {
                 node: userSelectedNode,
                 timestamp: Date.now()
@@ -168,17 +163,12 @@ async function loadNodeInfo() {
             console.log('[Popup] 缓存已更新');
 
             // 通知 background 更新，并等待响应
-            await new Promise((resolve, reject) => {
-              chrome.runtime.sendMessage({ type: 'UPDATE_NODE', node: userSelectedNode }, (response) => {
-                if (response && response.success) {
-                  console.log('[Popup] Background 已更新节点:', response.node);
-                  resolve(response);
-                } else {
-                  console.error('[Popup] Background 更新失败:', response);
-                  reject(new Error('更新失败'));
-                }
-              });
-            });
+            const response = await browser.runtime.sendMessage({ type: 'UPDATE_NODE', node: userSelectedNode });
+            if (!response || !response.success) {
+              console.error('[Popup] Background 更新失败:', response);
+              throw new Error('更新失败');
+            }
+            console.log('[Popup] Background 已更新节点:', response.node);
 
             // 刷新显示
             await loadNodeInfo();
@@ -254,11 +244,7 @@ async function loadLocationInfo() {
   const locationInfoEl = document.getElementById('location-info');
 
   try {
-    const response = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: 'GET_LOCATION' }, (response) => {
-        resolve(response);
-      });
-    });
+    const response = await browser.runtime.sendMessage({ type: 'GET_LOCATION' });
 
     if (response && response.location) {
       const loc = response.location;
@@ -307,7 +293,7 @@ async function loadAlwaysAccelerateSetting() {
   const alwaysAccelerateCheckbox = document.getElementById('always-accelerate-checkbox');
 
   try {
-    const result = await chrome.storage.local.get(['gh_accelerator_always_accelerate']);
+    const result = await browser.storage.local.get(['gh_accelerator_always_accelerate']);
 
     if (result.gh_accelerator_always_accelerate) {
       alwaysAccelerateCheckbox.checked = true;

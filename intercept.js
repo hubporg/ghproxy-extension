@@ -21,7 +21,6 @@
   const timerEl = document.getElementById('timer');
   const countdownEl = document.getElementById('countdown');
   const alwaysAccelerateEl = document.getElementById('always-accelerate');
-  const disableForSessionEl = document.getElementById('disable-for-session');
   const advancedToggle = document.getElementById('advanced-toggle');
   const advancedContent = document.getElementById('advanced-content');
   const advancedArrow = document.getElementById('advanced-arrow');
@@ -72,28 +71,22 @@
   }
 
   function loadUserPreferences() {
-    chrome.storage.local.get([
-      'gh_accelerator_always_accelerate',
-      'gh_accelerator_disable_session'
-    ], (result) => {
-      // 始终加速
+    browser.storage.local.get([
+      'gh_accelerator_always_accelerate'
+    ]).then((result) => {
       if (result.gh_accelerator_always_accelerate) {
         alwaysAccelerateEl.checked = true;
-      }
-
-      // 会话临时禁用
-      if (result.gh_accelerator_disable_session) {
-        disableForSessionEl.checked = true;
       }
     });
   }
 
   // 检测是否开启代理
-  function detectProxyStatus() {
+  async function detectProxyStatus() {
     console.log('[Intercept] 开始检测代理状态...');
 
     // 使用后台 script 的 GET_LOCATION 消息
-    chrome.runtime.sendMessage({ type: 'GET_LOCATION' }, (response) => {
+    try {
+      const response = await browser.runtime.sendMessage({ type: 'GET_LOCATION' });
       console.log('[Intercept] 收到位置响应:', response);
 
       if (response && response.location) {
@@ -105,13 +98,17 @@
         updateProxyStatus(location);
         checkAutoAccelerate();
       } else {
-        // 检测失败，默认认为未开启代理
         console.warn('[Intercept] 位置检测失败，默认未开启代理');
         isProxyEnabled = false;
         updateProxyStatus({ country: 'unknown', isChinaMainland: true });
         checkAutoAccelerate();
       }
-    });
+    } catch (error) {
+      console.warn('[Intercept] 位置检测出错:', error);
+      isProxyEnabled = false;
+      updateProxyStatus({ country: 'unknown', isChinaMainland: true });
+      checkAutoAccelerate();
+    }
   }
 
   function updateProxyStatus(location) {
@@ -154,7 +151,7 @@
     }
 
     // 未开启代理（大陆用户直连），检查用户偏好
-    chrome.storage.local.get([
+    browser.storage.local.get([
       'gh_accelerator_always_accelerate',
       'gh_accelerator_disable_session',
       'gh_accelerator_domain_preferences'
@@ -206,12 +203,11 @@
       // href 已经在 init() 中设置
     });
 
-    // 直接访问按钮点击
+    // 直接访问按钮点击 - 通知 background 在 10s 内不拦截该 URL
     directBtn.addEventListener('click', (e) => {
-      console.log('[Intercept] 用户选择直接访问');
+      console.log('[Intercept] 用户选择直接访问，跳过拦截 10s');
+      browser.runtime.sendMessage({ type: 'SKIP_INTERCEPT', url: originalUrl, duration: 10000 });
       saveUserPreferences();
-      // 不阻止默认行为，让浏览器自然跳转
-      // href 已经在 init() 中设置
     });
 
     // 返回按钮点击
@@ -238,7 +234,7 @@
 
       if (shouldAccelerate) {
         // 全局始终加速
-        chrome.storage.local.set({
+        browser.storage.local.set({
           gh_accelerator_always_accelerate: true
         });
 
@@ -249,20 +245,8 @@
         // 立即跳转到加速链接，不再显示此页面
         window.location.href = acceleratedUrl;
       } else {
-        chrome.storage.local.remove('gh_accelerator_always_accelerate');
+        browser.storage.local.remove('gh_accelerator_always_accelerate');
         stopCountdown();
-      }
-    });
-
-    // 会话临时禁用
-    disableForSessionEl.addEventListener('change', (e) => {
-      chrome.storage.local.set({
-        gh_accelerator_disable_session: e.target.checked
-      });
-
-      if (e.target.checked) {
-        // 立即跳转到原始链接
-        window.location.href = originalUrl;
       }
     });
 
@@ -276,7 +260,7 @@
     // 帮助链接
     helpLink.addEventListener('click', (e) => {
       e.preventDefault();
-      chrome.tabs.create({ url: 'https://github.com/akams-cn/github-accelerator/wiki/Help' });
+      browser.tabs.create({ url: 'https://github.com/akams-cn/github-accelerator/wiki/Help' });
     });
   }
 
@@ -300,22 +284,22 @@
   }
 
   function saveDomainPreference(preference) {
-    chrome.storage.local.get(['gh_accelerator_domain_preferences'], (result) => {
+    browser.storage.local.get(['gh_accelerator_domain_preferences'], (result) => {
       const preferences = result.gh_accelerator_domain_preferences || {};
       preferences[currentDomain] = preference;
 
-      chrome.storage.local.set({
+      browser.storage.local.set({
         gh_accelerator_domain_preferences: preferences
       });
     });
   }
 
   function removeDomainPreference() {
-    chrome.storage.local.get(['gh_accelerator_domain_preferences'], (result) => {
+    browser.storage.local.get(['gh_accelerator_domain_preferences'], (result) => {
       const preferences = result.gh_accelerator_domain_preferences || {};
       delete preferences[currentDomain];
 
-      chrome.storage.local.set({
+      browser.storage.local.set({
         gh_accelerator_domain_preferences: preferences
       });
     });

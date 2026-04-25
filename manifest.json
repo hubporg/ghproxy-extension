@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "GitHub Accelerator: GitHub 文件加速",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "智能 GitHub 下载加速器 - 拦截页面模式，完美兼容 IDM",
     "permissions": [
         "storage",
@@ -20,7 +20,18 @@
         "https://api.akams.cn/*"
     ],
     "background": {
-        "service_worker": "background.js"
+        "service_worker": "background.js",
+        "type": "module",
+        "scripts": [
+            "browser-polyfill.js",
+            "background.js"
+        ]
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "github-accelerator@hubp.org",
+            "strict_min_version": "109.0"
+        }
     },
     "action": {
         "default_popup": "popup.html",
@@ -30,7 +41,8 @@
         {
             "resources": [
                 "intercept.html",
-                "intercept.js"
+                "intercept.js",
+                "browser-polyfill.js"
             ],
             "matches": [
                 "<all_urls>"
