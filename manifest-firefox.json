@@ -1,0 +1,63 @@
+{
+    "manifest_version": 3,
+    "name": "GitHub Accelerator: GitHub 文件加速",
+    "version": "1.0.1",
+    "description": "智能 GitHub 下载加速器 - 拦截页面模式，完美兼容 IDM",
+    "permissions": [
+        "storage",
+        "contextMenus",
+        "activeTab",
+        "scripting",
+        "tabs",
+        "webRequest",
+        "webNavigation"
+    ],
+    "host_permissions": [
+        "*://github.com/*",
+        "*://codeload.github.com/*",
+        "*://raw.githubusercontent.com/*",
+        "*://gist.githubusercontent.com/*",
+        "https://api.akams.cn/*"
+    ],
+    "background": {
+        "scripts": [
+            "browser-polyfill.js",
+            "background.js"
+        ]
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "github-accelerator@hubp.org",
+            "strict_min_version": "140.0",
+            "data_collection_permissions": {
+                "required": [
+                    "none"
+                ],
+                "optional": [
+                    "technicalAndInteraction"
+                ]
+            }
+        }
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "GitHub Accelerator: GitHub 文件加速"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "intercept.html",
+                "intercept.js",
+                "browser-polyfill.js"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    }
+}
