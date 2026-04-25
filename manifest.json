@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "GitHub Accelerator: GitHub 文件加速",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "智能 GitHub 下载加速器 - 拦截页面模式，完美兼容 IDM",
     "permissions": [
         "storage",
@@ -21,25 +21,7 @@
     ],
     "background": {
         "service_worker": "background.js",
-        "type": "module",
-        "scripts": [
-            "browser-polyfill.js",
-            "background.js"
-        ]
-    },
-    "browser_specific_settings": {
-        "gecko": {
-            "id": "github-accelerator@hubp.org",
-            "strict_min_version": "140.0",
-            "data_collection_permissions": {
-                "required": [
-                    "none"
-                ],
-                "optional": [
-                    "technicalAndInteraction"
-                ]
-            }
-        }
+        "type": "module"
     },
     "action": {
         "default_popup": "popup.html",
