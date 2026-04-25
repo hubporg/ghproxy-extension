@@ -30,7 +30,13 @@
     "browser_specific_settings": {
         "gecko": {
             "id": "github-accelerator@hubp.org",
-            "strict_min_version": "109.0"
+            "strict_min_version": "112.0",
+            "data_collection_permissions": {
+                "required": [],
+                "optional": [
+                    "technicalAndInteraction"
+                ]
+            }
         }
     },
     "action": {
