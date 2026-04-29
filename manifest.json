@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "GitHub Accelerator: GitHub 文件加速",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "智能 GitHub 下载加速器 - 拦截页面模式，完美兼容 IDM",
     "permissions": [
         "storage",

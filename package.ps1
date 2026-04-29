@@ -1,11 +1,26 @@
 param(
     [ValidateSet('chrome', 'firefox', 'all')]
-    [string]$Target = 'all'
+    [string]$Target = 'all',
+    [string]$Version = ''
 )
 
 $distDir = "dist"
 if (!(Test-Path $distDir)) {
     New-Item -ItemType Directory -Path $distDir | Out-Null
+}
+
+if ($Version -ne '') {
+    $manifestFile = "manifest.json"
+    $content = [System.IO.File]::ReadAllText($manifestFile)
+    $content = $content -replace '"version"\s*:\s*"[^"]*"', "`"version`": `"$Version`""
+    [System.IO.File]::WriteAllText($manifestFile, $content, (New-Object System.Text.UTF8Encoding $false))
+
+    $manifestFile = "manifest-firefox.json"
+    $content = [System.IO.File]::ReadAllText($manifestFile)
+    $content = $content -replace '"version"\s*:\s*"[^"]*"', "`"version`": `"$Version`""
+    [System.IO.File]::WriteAllText($manifestFile, $content, (New-Object System.Text.UTF8Encoding $false))
+
+    Write-Host "Version set to: $Version"
 }
 
 function Create-Zip {
