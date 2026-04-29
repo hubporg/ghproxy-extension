@@ -23,7 +23,8 @@
         "scripts": [
             "browser-polyfill.js",
             "background.js"
-        ]
+        ],
+        "type": "module"
     },
     "browser_specific_settings": {
         "gecko": {
