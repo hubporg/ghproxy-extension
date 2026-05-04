@@ -6,10 +6,7 @@ const CONFIG = {
   CACHE_DURATION: 2 * 60 * 60 * 1000,
   SPEED_TEST_COUNT: 'all',
   SPEED_TEST_TIMEOUT: 5000,
-  INTEGRITY_TEST: {
-    localIcon: 'icons/icon128.png',
-    remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png'
-  },
+  GEO_URL: 'https://www.visa.cn/cdn-cgi/trace', // Cloudflare 地理位置 API
   FALLBACK_NODES: [
     'https://gh.llkk.cc',
     'https://gh.dpik.top',
@@ -726,17 +723,31 @@ function setupContextMenuHandler() {
 
     switch (info.menuItemId) {
       case 'github-accelerator-copy':
-        try {
-          await copyToClipboard(acceleratedUrl);
-          showNotification(tab.id, '✅ 加速链接已复制到剪贴板！', acceleratedUrl);
-        } catch (error) {
-          showNotification(tab.id, '❌ 复制失败: ' + error.message);
-        }
+        browser.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: (url) => {
+            return navigator.clipboard.writeText(url).catch(function () {
+              const ta = document.createElement('textarea');
+              ta.value = url;
+              ta.style.position = 'fixed';
+              ta.style.left = '-9999px';
+              document.body.appendChild(ta);
+              ta.select();
+              try { document.execCommand('copy'); } catch (e) { }
+              ta.remove();
+            });
+          },
+          args: [acceleratedUrl]
+        }).then(() => {
+          showNotification(tab.id, '✅ 加速链接已复制到剪贴板！');
+        }).catch(function () {
+          showNotification(tab.id, '❌ 复制失败');
+        });
         break;
 
       case 'github-accelerator-open':
         browser.tabs.create({ url: acceleratedUrl });
-        showNotification(tab.id, '⚡ 正在打开加速链接...', acceleratedUrl);
+        showNotification(tab.id, '⚡ 正在打开加速链接...');
         break;
     }
   });
@@ -758,50 +769,54 @@ function isGitHubUrl(url) {
 }
 
 async function copyToClipboard(text) {
-  await navigator.clipboard.writeText(text);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  throw new Error('当前浏览器不支持剪贴板 API');
 }
 
-function showNotification(tabId, message, details) {
+function showNotification(tabId, message) {
   browser.scripting.executeScript({
     target: { tabId },
-    func: (msg, detail) => {
-      const notification = document.createElement('div');
-      notification.innerHTML = `
-        <div style="
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          z-index: 2147483647;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 16px 20px;
-          border-radius: 10px;
-          font-size: 14px;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-          max-width: 400px;
-          line-height: 1.5;
-          animation: slideIn 0.3s ease-out;
-        ">
-          <strong style="font-size: 15px;">${msg}</strong>
-          ${detail ? `<br><span style="font-size: 11px; opacity: 0.9; word-break: break-all; margin-top: 6px; display: block;">${detail}</span>` : ''}
-        </div>
-        <style>
-          @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-          }
-        </style>
-      `;
-      document.body.appendChild(notification);
+    func: (msg) => {
+      const container = document.createElement('div');
+      container.style.cssText = [
+        'position:fixed;top:20px;left:50%;transform:translateX(-50%)',
+        'z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif',
+        'animation:fadeSlideDown 0.3s ease-out'
+      ].join(';');
 
-      setTimeout(() => {
-        notification.style.opacity = '0';
-        notification.style.transition = 'opacity 0.5s ease';
-        setTimeout(() => notification.remove(), 500);
-      }, 3000);
+      const card = document.createElement('div');
+      card.style.cssText = [
+        'background:#155DFC;color:#fff;padding:16px 28px;border-radius:8px',
+        'font-size:14px;font-weight:500;box-shadow:0 8px 24px rgba(21,93,252,0.35)',
+        'text-align:center;max-width:400px;line-height:1.5;white-space:nowrap'
+      ].join(';');
+
+      card.textContent = msg;
+
+      const style = document.createElement('style');
+      style.textContent = [
+        '@keyframes fadeSlideDown{',
+        '  from{opacity:0;transform:translateY(-10px)}',
+        '  to{opacity:1;transform:translateY(0)}',
+        '}',
+        '@keyframes fadeOut{',
+        '  from{opacity:1}',
+        '  to{opacity:0}',
+        '}'
+      ].join('');
+
+      container.appendChild(style);
+      container.appendChild(card);
+      document.body.appendChild(container);
+
+      setTimeout(function () {
+        card.style.animation = 'fadeOut 0.4s ease forwards';
+        setTimeout(function () { container.remove(); }, 400);
+      }, 2500);
     },
-    args: [message, details]
+    args: [message]
   }).catch(err => {
     console.warn('[GitHub Accelerator] 无法显示通知:', err);
   });
