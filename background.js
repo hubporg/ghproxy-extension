@@ -6,7 +6,11 @@ const CONFIG = {
   CACHE_DURATION: 2 * 60 * 60 * 1000,
   SPEED_TEST_COUNT: 'all',
   SPEED_TEST_TIMEOUT: 5000,
-  GEO_URL: 'https://www.visa.cn/cdn-cgi/trace', // Cloudflare 地理位置 API
+  GEO_URL: 'https://www.visa.cn/cdn-cgi/trace',
+  INTEGRITY_TEST: {
+    localIcon: 'icons/icon128.png',
+    remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png'
+  },
   FALLBACK_NODES: [
     'https://gh.llkk.cc',
     'https://gh.dpik.top',
