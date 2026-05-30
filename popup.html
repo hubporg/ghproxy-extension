@@ -246,7 +246,7 @@
     <div class="title">
       <span class="normal">Github</span> <span class="highlight">Accelerator</span>
     </div>
-    <div class="subtitle">智能 GitHub 下载加速器 · 302重定向模式 · IDM完美兼容</div>
+    <div class="subtitle">智能 GitHub 下载加速器 · 302重定向模式</div>
   </div>
 
   <div class="content">
@@ -268,7 +268,24 @@
         <button id="copy-btn" class="btn btn-secondary">
           📋 复制地址
         </button>
+        <button id="refresh-location-btn" class="btn btn-secondary" title="重新测试IP地址">
+          🌍 重测IP
+        </button>
       </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">
+        ✏️ 自定义节点（永久存储，默认置顶）：
+      </div>
+      <div class="custom-node-input" style="display: flex; gap: 8px;">
+        <input type="text" id="custom-node-url" placeholder="输入自定义节点URL（如 https://gh.example.com）"
+          style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;" />
+        <button id="add-custom-node-btn" class="btn btn-primary" style="flex: 0 0 auto; padding: 8px 16px;">
+          ➕ 添加
+        </button>
+      </div>
+      <div id="custom-nodes-list" style="margin-top: 12px;"></div>
     </div>
 
     <div class="info-card">

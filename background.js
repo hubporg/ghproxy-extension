@@ -259,11 +259,53 @@ async function fetchProxyNodes() {
   return data.data || [];
 }
 
-async function speedTestNodes(nodes) {
-  console.log(`[GitHub Accelerator] 开始并发测速... (共 ${nodes.length} 个节点)`);
+async function getCustomNodes() {
+  const result = await browser.storage.local.get('gh_accelerator_custom_nodes');
+  return result.gh_accelerator_custom_nodes || [];
+}
+
+async function saveCustomNodes(nodes) {
+  await browser.storage.local.set({
+    gh_accelerator_custom_nodes: nodes
+  });
+}
+
+async function addCustomNode(url) {
+  const customNodes = await getCustomNodes();
+  const exists = customNodes.find(n => n.url === url);
+  if (exists) {
+    return exists;
+  }
+  const newNode = { url, latency: -1, isCustom: true, addedAt: Date.now() };
+  customNodes.push(newNode);
+  await saveCustomNodes(customNodes);
+  return newNode;
+}
+
+async function updateCustomNode(oldUrl, newUrl) {
+  const customNodes = await getCustomNodes();
+  const nodeIndex = customNodes.findIndex(n => n.url === oldUrl);
+  if (nodeIndex === -1) return null;
+  const wasCustomSelected = customNodes[nodeIndex].isCustom;
+  customNodes[nodeIndex].url = newUrl;
+  customNodes[nodeIndex].latency = -1;
+  await saveCustomNodes(customNodes);
+  return customNodes[nodeIndex];
+}
+
+async function removeCustomNode(url) {
+  const customNodes = await getCustomNodes();
+  const filtered = customNodes.filter(n => n.url !== url);
+  await saveCustomNodes(filtered);
+}
+
+async function speedTestNodes(apiNodes, customNodes = [], options = { testCustomOnly: false }) {
+  const nodesToTest = options.testCustomOnly ? customNodes : [...apiNodes, ...customNodes];
+
+  console.log(`[GitHub Accelerator] 开始并发测速... (API节点: ${apiNodes.length}, 自定义节点: ${customNodes.length})`);
   const testNodes = CONFIG.SPEED_TEST_COUNT === 'all'
-    ? nodes
-    : nodes.slice(0, CONFIG.SPEED_TEST_COUNT);
+    ? nodesToTest
+    : nodesToTest.slice(0, CONFIG.SPEED_TEST_COUNT);
 
   console.log(`[GitHub Accelerator] 将测试 ${testNodes.length} 个节点`);
 
@@ -272,8 +314,11 @@ async function speedTestNodes(nodes) {
 
   const promises = testNodes.map(node =>
     testSingleNode(node.url).then(result => {
-      console.log(`[GitHub Accelerator] ${node.url}: ${result.latency}ms${result.verified ? ' ✅' : ' ❌'}`);
-      return result;
+      console.log(`[GitHub Accelerator] ${node.url}: ${result.latency}ms${result.verified ? ' ✅' : ' ❌'}${node.isCustom ? ' [自定义]' : ''}`);
+      return {
+        ...result,
+        isCustom: node.isCustom || false
+      };
     }).catch(error => {
       console.warn(`[GitHub Accelerator] ${node.url} 测速失败:`, error);
       return null;
@@ -290,20 +335,32 @@ async function speedTestNodes(nodes) {
   if (validResults.length > 0) {
     console.log(`[GitHub Accelerator] 最优节点：${validResults[0].url} (${validResults[0].latency}ms)`);
 
-    const cleanedResults = validResults.map(node => {
-      const { isUserSelected, ...rest } = node;
-      return rest;
-    });
-
+    const apiResults = validResults.filter(r => !r.isCustom);
     await browser.storage.local.set({
-      gh_accelerator_node_list: cleanedResults
+      gh_accelerator_node_list: apiResults
     });
 
-    return cleanedResults[0];
+    const customResults = validResults.filter(r => r.isCustom);
+    if (customResults.length > 0) {
+      await updateCustomNodesLatency(customResults);
+    }
+
+    return validResults[0];
   }
 
   console.log('[GitHub Accelerator] 所有节点失败，使用兜底节点');
-  return { url: CONFIG.FALLBACK_NODES[0], latency: -1 };
+  return { url: CONFIG.FALLBACK_NODES[0], latency: -1, isCustom: false };
+}
+
+async function updateCustomNodesLatency(results) {
+  const customNodes = await getCustomNodes();
+  for (const result of results) {
+    const nodeIndex = customNodes.findIndex(n => n.url === result.url);
+    if (nodeIndex !== -1) {
+      customNodes[nodeIndex].latency = result.latency;
+    }
+  }
+  await saveCustomNodes(customNodes);
 }
 
 async function testSingleNode(proxyUrl) {
@@ -628,6 +685,68 @@ function setupWebRequestListener() {
       return false;
     }
 
+    if (message.type === 'REFRESH_LOCATION') {
+      detectLocation().then(async (newLocation) => {
+        currentLocation = newLocation;
+        console.log('[GitHub Accelerator] 地理位置已重新检测:', newLocation);
+        sendResponse({ success: true, location: newLocation });
+      });
+      return true;
+    }
+
+    if (message.type === 'ADD_CUSTOM_NODE') {
+      const url = message.url;
+      if (!url) {
+        sendResponse({ success: false, error: 'URL不能为空' });
+        return false;
+      }
+      addCustomNode(url).then(async (node) => {
+        const customNodes = await getCustomNodes();
+        const apiNodes = await browser.storage.local.get('gh_accelerator_node_list');
+        const apiNodeList = apiNodes.gh_accelerator_node_list || [];
+        const hasApiResults = apiNodeList.length > 0;
+
+        if (hasApiResults) {
+          console.log('[GitHub Accelerator] API节点已有结果，单独测试新自定义节点');
+          const result = await testSingleNode(node.url);
+          if (result.verified) {
+            node.latency = result.latency;
+            await updateCustomNodesLatency([result]);
+          }
+        }
+
+        sendResponse({ success: true, node, customNodes: await getCustomNodes() });
+      }).catch(error => {
+        sendResponse({ success: false, error: error.message });
+      });
+      return true;
+    }
+
+    if (message.type === 'UPDATE_CUSTOM_NODE') {
+      updateCustomNode(message.oldUrl, message.newUrl).then(async node => {
+        if (node) {
+          sendResponse({ success: true, node, customNodes: await getCustomNodes() });
+        } else {
+          sendResponse({ success: false, error: '节点不存在' });
+        }
+      });
+      return true;
+    }
+
+    if (message.type === 'REMOVE_CUSTOM_NODE') {
+      removeCustomNode(message.url).then(async () => {
+        sendResponse({ success: true, customNodes: await getCustomNodes() });
+      });
+      return true;
+    }
+
+    if (message.type === 'GET_CUSTOM_NODES') {
+      getCustomNodes().then(nodes => {
+        sendResponse({ customNodes: nodes });
+      });
+      return true;
+    }
+
     if (message.type === 'SKIP_INTERCEPT') {
       const url = message.url;
       if (url) {
@@ -656,12 +775,13 @@ async function initBestNode() {
 
   if (!bestNode) {
     try {
-      const nodes = await fetchProxyNodes();
-      bestNode = await speedTestNodes(nodes);
+      const apiNodes = await fetchProxyNodes();
+      const customNodes = await getCustomNodes();
+      bestNode = await speedTestNodes(apiNodes, customNodes);
       await setCachedNode(bestNode);
     } catch (error) {
       console.error('[GitHub Accelerator] 初始化失败:', error);
-      bestNode = { url: CONFIG.FALLBACK_NODES[0], latency: -1 };
+      bestNode = { url: CONFIG.FALLBACK_NODES[0], latency: -1, isCustom: false };
     }
   }
 

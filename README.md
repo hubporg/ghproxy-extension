@@ -10,7 +10,7 @@
 
 [![GitHub](https://img.shields.io/github/license/hubporg/ghproxy-extension)](LICENSE)
 
-智能 GitHub 下载加速器 - 302 重定向模式 · IDM 完美兼容
+智能 GitHub 下载加速器 - 302 重定向模式 · 支持 IDM 等下载工具
 
 ## 📖 项目简介
 
@@ -20,7 +20,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 
 - 🚀 **智能加速**：自动选择最优代理节点，无需手动配置
 - 🌏 **地理位置检测**：智能识别用户所在地区，自动判断是否需要加速
--  **302 重定向**：采用 302 重定向模式，与 IDM 等下载工具完美兼容
+- 🎯 **302 重定向**：采用 302 重定向模式，兼容 IDM 等下载工具[用户须知](#%EF%B8%8F-%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9)
 - 🎯 **节点测速**：支持手动节点测速，选择最快节点
 - 💾 **缓存机制**：2 小时缓存最优节点，避免重复测速
 - 🔧 **灵活配置**：支持全局/域名级别的加速偏好设置
@@ -28,15 +28,27 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 
 ## 📦 安装方式
 
-### Chrome/Edge 浏览器
+### 扩展商店安装（推荐）
 
-1. 克隆或下载本仓库
+- **Microsoft Edge 扩展商店**: [GitHub Accelerator](https://microsoftedge.microsoft.com/addons/detail/pingkpgackfhaonibagjlibmobkhgdml)
+- **Firefox Add-ons 商店**: [GitHub Accelerator](https://addons.mozilla.org/addon/github-accelerator/)
+
+### 手动安装
+
+#### Chrome/Edge 浏览器
+
+1. 从 [Releases](https://github.com/hubporg/ghproxy-extension/releases) 下载 `.crx` 文件
 2. 打开浏览器扩展管理页面：
    - Chrome: `chrome://extensions/`
    - Edge: `edge://extensions/`
 3. 开启右上角的"开发者模式"
-4. 点击"加载已解压的扩展程序"
-5. 选择项目文件夹即可
+4. 将 `.crx` 文件直接拖拽到扩展管理页面即可安装
+
+#### Firefox 浏览器
+
+1. 从 [Releases](https://github.com/hubporg/ghproxy-extension/releases) 下载 `.xpi` 文件
+2. 打开浏览器扩展管理页面：`about:debugging#/runtime/this-firefox`
+3. 将 `.xpi` 文件直接拖拽到页面中即可安装
 
 ## 🎯 使用指南
 
@@ -62,10 +74,12 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 
 ### Popup 页面功能
 
-- **节点选择**：查看和选择代理节点
+- **节点选择**：查看和选择代理节点（支持API节点和自定义节点）
 - **节点测速**：测试所有节点延迟
 - **复制地址**：复制当前加速链接
+- **自定义节点**：添加、编辑、删除自定义节点
 - **地理位置**：显示用户所在地区和网络状态
+- **IP重测**：重新检测当前IP地址和地区
 - **始终加速开关**：快速启用/禁用自动加速
 
 ### 右键菜单功能
@@ -90,33 +104,14 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 4. **智能拦截**：使用 `webNavigation` API 在导航前拦截并转换链接
 5. **缓存机制**：缓存最优节点 2 小时，避免频繁测速
 
-## 📝 更新日志
-
-### v1.0.0
-- ✅ 初始版本发布
-- ✅ 智能节点选择和测速
-- ✅ 地理位置检测
-- ✅ 拦截页面模式
-- ✅ Popup 管理界面
-- ✅ 右键菜单功能
-- ✅ 缓存机制
-- ✅ 域名偏好设置
 
 ## 🔮 TODO
 
 ### 计划中的功能
 
-- [ ] **Firefox 扩展适配**
-  - 适配 Firefox 的 WebExtensions API
-  - 发布到 Firefox Add-ons 商店
-  
 - [ ] **油猴脚本版本**
   - 开发 Tampermonkey/Greasemonkey 脚本
   - 无需安装扩展，跨浏览器支持
-  - 目前需要删除重做，留待后续版本实现
-
-- [ ] 更多代理节点支持
-- [ ] 自定义代理节点
 - [ ] 下载统计功能
 - [ ] 多语言支持
 
@@ -130,7 +125,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
    - 首次访问 GitHub 下载链接时，IDM 可能会弹出下载确认框并显示原始链接
    - **请手动取消该下载**，然后点击页面上的"使用加速链接"按钮
    - 点击后 IDM 会再次弹出，此时显示的就是加速后的链接
-   - **建议启用"始终使用加速链接"选项**，这样访问 GitHub 下载链接时会自动跳转，IDM 将直接捕获加速链接，避免重复确认
+   - **建议启用"始终使用加速链接"选项**，这样访问 GitHub 下载链接时会自动跳转，IDM 将直接捕获加速链接，避免重复确认，可能小部分时候会弹2次
 
 ## 🤝 贡献指南
 

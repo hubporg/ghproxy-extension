@@ -5,7 +5,7 @@
   // 从 URL 参数获取原始链接和加速链接
   const urlParams = new URLSearchParams(window.location.search);
   const originalUrl = urlParams.get('url');
-  const acceleratedUrl = urlParams.get('accel');
+  let acceleratedUrl = urlParams.get('accel');
   const refererUrl = urlParams.get('referer');
 
   console.log('[Intercept] 初始化参数:');
@@ -21,12 +21,12 @@
   const timerEl = document.getElementById('timer');
   const countdownEl = document.getElementById('countdown');
   const alwaysAccelerateEl = document.getElementById('always-accelerate');
-  const advancedToggle = document.getElementById('advanced-toggle');
-  const advancedContent = document.getElementById('advanced-content');
-  const advancedArrow = document.getElementById('advanced-arrow');
-  const helpLink = document.getElementById('help-link');
+
   const locationStatusEl = document.getElementById('location-status');
   const locationTextEl = document.getElementById('location-text');
+  const refreshLocationBtn = document.getElementById('refresh-location-btn');
+  const nodeSelect = document.getElementById('node-select');
+  const latencyBadge = document.getElementById('latency-badge');
 
   // 地理位置状态
   let isProxyEnabled = null; // null: 检测中，true: 已开启代理，false: 未开启代理
@@ -66,6 +66,9 @@
     // 加载用户偏好设置
     loadUserPreferences();
 
+    // 加载节点选择
+    loadNodeSelector();
+
     // 绑定事件
     bindEvents();
   }
@@ -78,6 +81,186 @@
         alwaysAccelerateEl.checked = true;
       }
     });
+  }
+
+  async function loadNodeSelector() {
+    try {
+      const cached = await browser.storage.local.get(['gh_accelerator_best_node', 'gh_accelerator_node_list']);
+      const currentData = cached.gh_accelerator_best_node;
+      const apiNodeList = cached.gh_accelerator_node_list || [];
+
+      const customNodesResult = await browser.runtime.sendMessage({ type: 'GET_CUSTOM_NODES' });
+      const customNodes = customNodesResult?.customNodes || [];
+
+      const sortedApiNodes = apiNodeList.sort((a, b) => {
+        if (a.latency === -1) return 1;
+        if (b.latency === -1) return -1;
+        return a.latency - b.latency;
+      });
+
+      const sortedCustomNodes = customNodes.sort((a, b) => {
+        if (a.latency === -1) return 1;
+        if (b.latency === -1) return -1;
+        return a.latency - b.latency;
+      });
+
+      const allNodes = [
+        ...sortedCustomNodes.map(n => ({ ...n, _isCustom: true })),
+        ...sortedApiNodes
+      ];
+
+      const currentUrl = currentData?.node?.url || '';
+
+      let optionsHTML = '';
+      allNodes.forEach((node, index) => {
+        const domain = extractDomain(node.url);
+        const latencyStr = node.latency > 0 ? `${node.latency}ms` : '默认';
+        const selected = node.url === currentUrl ? 'selected' : '';
+
+        let emoji;
+        if (node._isCustom) {
+          emoji = '⭐';
+        } else if (node.isUserSelected === true) {
+          emoji = '🎯';
+        } else if (node.latency > 0) {
+          const customCount = allNodes.filter(n => n._isCustom).length;
+          const apiIndex = index - customCount;
+          const totalApiNodes = allNodes.length - customCount;
+          const ratio = totalApiNodes > 0 ? apiIndex / totalApiNodes : 0;
+          if (ratio < 0.33) {
+            emoji = '🟢';
+          } else if (ratio < 0.66) {
+            emoji = '🟠';
+          } else {
+            emoji = '🔴';
+          }
+        } else {
+          emoji = '⚪';
+        }
+
+        optionsHTML += `<option value="${node.url}" ${selected}>${emoji} ${domain} (${latencyStr})</option>`;
+      });
+
+      nodeSelect.innerHTML = optionsHTML;
+
+      // 更新当前节点延迟显示
+      if (currentData?.node?.latency > 0) {
+        latencyBadge.textContent = `${currentData.node.latency}ms`;
+        if (currentData.node.latency < 200) {
+          latencyBadge.className = 'latency-badge good';
+        } else if (currentData.node.latency < 500) {
+          latencyBadge.className = 'latency-badge default';
+        }
+      } else {
+        latencyBadge.textContent = '-';
+        latencyBadge.className = 'latency-badge default';
+      }
+
+      // 节点选择事件
+      nodeSelect.onchange = async (e) => {
+        const selectedUrl = e.target.value;
+        const selectedNode = allNodes.find(n => n.url === selectedUrl);
+
+        if (selectedNode) {
+          console.log('[Intercept] 用户选择节点:', selectedNode);
+
+          const nodeToSave = {
+            ...selectedNode,
+            isCustom: selectedNode._isCustom || false,
+            isUserSelected: !selectedNode._isCustom ? true : undefined
+          };
+
+          await browser.storage.local.set({
+            gh_accelerator_best_node: {
+              node: nodeToSave,
+              timestamp: Date.now()
+            }
+          });
+
+          const response = await browser.runtime.sendMessage({ type: 'UPDATE_NODE', node: nodeToSave });
+          if (response && response.success) {
+            const proxyBaseUrl = selectedNode.url.replace(/\/$/, '');
+            const transformed = transformUrl(originalUrl);
+
+            if (transformed) {
+              acceleratedUrl = `${proxyBaseUrl}/${transformed}`;
+              accelerateBtn.href = acceleratedUrl;
+            } else {
+              acceleratedUrl = `${proxyBaseUrl}/${originalUrl}`;
+              accelerateBtn.href = acceleratedUrl;
+            }
+
+            if (countdownTimer) {
+              clearInterval(countdownTimer);
+              countdownTimer = null;
+              startCountdown();
+            }
+
+            if (selectedNode.latency > 0) {
+              latencyBadge.textContent = `${selectedNode.latency}ms`;
+              if (selectedNode.latency < 200) {
+                latencyBadge.className = 'latency-badge good';
+              } else if (selectedNode.latency < 500) {
+                latencyBadge.className = 'latency-badge default';
+              }
+            } else {
+              latencyBadge.textContent = '-';
+              latencyBadge.className = 'latency-badge default';
+            }
+
+            console.log('[Intercept] 节点已更新:', selectedNode.url);
+          }
+        }
+      };
+    } catch (error) {
+      console.error('[Intercept] 加载节点失败:', error);
+    }
+  }
+
+  function extractDomain(url) {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url;
+    }
+  }
+
+  function transformUrl(originalUrl) {
+    try {
+      const url = new URL(originalUrl);
+      const hostname = url.hostname;
+      const pathname = url.pathname;
+
+      if (hostname === 'codeload.github.com') {
+        const match = pathname.match(/^\/([^\/]+)\/([^\/]+)\/(zip|tar\.gz)\/(.+)$/);
+        if (match) {
+          const [, user, repo, format, ref] = match;
+          const extension = format === 'zip' ? '.zip' : '.tar.gz';
+          return `https://github.com/${user}/${repo}/archive/${ref}${extension}`;
+        }
+        return null;
+      }
+
+      if (hostname === 'github.com' && pathname.includes('/blob/')) {
+        const transformed = pathname.replace('/blob/', '/raw/');
+        return `https://github.com${transformed}`;
+      }
+
+      if (hostname === 'raw.githubusercontent.com') {
+        return originalUrl;
+      }
+
+      if (hostname === 'github.com') {
+        if (pathname.includes('/releases/download/') || pathname.includes('/archive/')) {
+          return originalUrl;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[Intercept] URL 转换失败:', error);
+      return null;
+    }
   }
 
   // 检测是否开启代理
@@ -113,19 +296,19 @@
 
   function updateProxyStatus(location) {
     const countryNames = {
-      'CN': '🇨🇳 中国大陆',
-      'HK': '🇭🇰 中国香港',
-      'TW': '🇹🇼 中国台湾',
-      'US': '🇺🇸 美国',
-      'JP': '🇯🇵 日本',
-      'KR': '🇰🇷 韩国',
-      'SG': '🇸🇬 新加坡',
-      'DE': '🇩🇪 德国',
-      'GB': '🇬🇧 英国',
-      'FR': '🇫🇷 法国'
+      'CN': '中国大陆',
+      'HK': '中国香港',
+      'TW': '中国台湾',
+      'US': '美国',
+      'JP': '日本',
+      'KR': '韩国',
+      'SG': '新加坡',
+      'DE': '德国',
+      'GB': '英国',
+      'FR': '法国'
     };
 
-    const countryName = countryNames[location.country] || `🌐 ${location.country}`;
+    const countryName = countryNames[location.country] || location.country;
     const hasProxy = isProxyEnabled === true;
 
     locationStatusEl.className = 'location-status ' + (hasProxy ? 'location-status-cn' : 'location-status-global');
@@ -229,20 +412,46 @@
     });
 
     // 始终加速复选框
-    alwaysAccelerateEl.addEventListener('change', (e) => {
+    alwaysAccelerateEl.addEventListener('change', async (e) => {
       const shouldAccelerate = e.target.checked;
 
       if (shouldAccelerate) {
-        // 全局始终加速
+        const selectedNodeUrl = nodeSelect.value;
+        if (selectedNodeUrl) {
+          const selectedNode = await getNodeByUrl(selectedNodeUrl);
+          if (selectedNode) {
+            const nodeToSave = {
+              ...selectedNode,
+              isCustom: selectedNode._isCustom || false,
+              isUserSelected: !selectedNode._isCustom ? true : undefined
+            };
+
+            await browser.storage.local.set({
+              gh_accelerator_best_node: {
+                node: nodeToSave,
+                timestamp: Date.now()
+              }
+            });
+
+            await browser.runtime.sendMessage({ type: 'UPDATE_NODE', node: nodeToSave });
+
+            const proxyBaseUrl = selectedNode.url.replace(/\/$/, '');
+            const transformed = transformUrl(originalUrl);
+            if (transformed) {
+              acceleratedUrl = `${proxyBaseUrl}/${transformed}`;
+            } else {
+              acceleratedUrl = `${proxyBaseUrl}/${originalUrl}`;
+            }
+          }
+        }
+
         browser.storage.local.set({
           gh_accelerator_always_accelerate: true
         });
 
-        // 清除域名特定偏好
         removeDomainPreference();
 
-        console.log('[Intercept] 用户勾选始终加速，立即跳转');
-        // 立即跳转到加速链接，不再显示此页面
+        console.log('[Intercept] 用户勾选始终加速，跳转到:', acceleratedUrl);
         window.location.href = acceleratedUrl;
       } else {
         browser.storage.local.remove('gh_accelerator_always_accelerate');
@@ -250,18 +459,51 @@
       }
     });
 
-    // 高级选项切换
-    advancedToggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      advancedContent.classList.toggle('show');
-      advancedArrow.textContent = advancedContent.classList.contains('show') ? '▲' : '▼';
-    });
+    async function getNodeByUrl(url) {
+      try {
+        const customNodesResult = await browser.runtime.sendMessage({ type: 'GET_CUSTOM_NODES' });
+        const customNodes = customNodesResult?.customNodes || [];
+        const cached = await browser.storage.local.get('gh_accelerator_node_list');
+        const apiNodes = cached.gh_accelerator_node_list || [];
 
-    // 帮助链接
-    helpLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      browser.tabs.create({ url: 'https://github.com/akams-cn/github-accelerator/wiki/Help' });
-    });
+        const customNode = customNodes.find(n => n.url === url);
+        if (customNode) {
+          return { ...customNode, _isCustom: true };
+        }
+
+        const apiNode = apiNodes.find(n => n.url === url);
+        if (apiNode) {
+          return apiNode;
+        }
+
+        return { url, latency: -1, _isCustom: false };
+      } catch (error) {
+        console.error('[Intercept] 获取节点失败:', error);
+        return null;
+      }
+    }
+
+    // 重新测试IP按钮
+    if (refreshLocationBtn) {
+      refreshLocationBtn.addEventListener('click', async () => {
+        refreshLocationBtn.disabled = true;
+        refreshLocationBtn.textContent = '🌍 重新检测中...';
+        locationTextEl.textContent = '重新检测中...';
+
+        try {
+          const response = await browser.runtime.sendMessage({ type: 'REFRESH_LOCATION' });
+          if (response && response.success) {
+            updateProxyStatus(response.location);
+          }
+        } catch (error) {
+          console.error('[Intercept] 重新测试IP失败:', error);
+          locationTextEl.textContent = '检测失败';
+        } finally {
+          refreshLocationBtn.disabled = false;
+          refreshLocationBtn.textContent = '🌍 重新测试IP地址';
+        }
+      });
+    }
   }
 
   function saveUserPreferences() {

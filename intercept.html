@@ -337,6 +337,61 @@
       animation: spin 0.8s linear infinite;
     }
 
+    .node-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+
+    .node-select {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      color: #333;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right center;
+      padding-right: 20px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .latency-badge {
+      background: #ffebee;
+      color: #c62828;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .latency-badge.good {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .latency-badge.default {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
@@ -350,7 +405,12 @@
     <div class="title">
       <span class="normal">Github</span> <span class="highlight">Accelerator</span>
     </div>
-    <div class="subtitle">智能 GitHub 下载加速器 · 302 重定向模式 · IDM 完美兼容</div>
+    <div class="subtitle">智能 GitHub 下载加速器 · 302 重定向模式</div>
+    <button id="refresh-location-btn"
+      style="margin-top: 10px; padding: 6px 12px; font-size: 12px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 6px; cursor: pointer; display: block; margin-left: auto; margin-right: auto;"
+      title="重新测试IP地址">
+      🌍 重新测试IP地址
+    </button>
   </div>
 
   <div class="content">
@@ -358,6 +418,16 @@
       <div class="location-status" id="location-status">
         <span class="location-spinner"></span>
         <span id="location-text">检测代理状态中...</span>
+      </div>
+
+      <div class="section-label">
+        📍 选择节点：
+      </div>
+      <div class="node-selector">
+        <select id="node-select" class="node-select">
+          <option value="">加载中...</option>
+        </select>
+        <span id="latency-badge" class="latency-badge default">-</span>
       </div>
 
       <div class="section-label">

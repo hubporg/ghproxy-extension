@@ -9,12 +9,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const speedtestBtn = document.getElementById('speedtest-btn');
   const copyBtn = document.getElementById('copy-btn');
   const alwaysAccelerateCheckbox = document.getElementById('always-accelerate-checkbox');
+  const refreshLocationBtn = document.getElementById('refresh-location-btn');
+  const customNodeUrlInput = document.getElementById('custom-node-url');
+  const addCustomNodeBtn = document.getElementById('add-custom-node-btn');
 
   await loadLocationInfo();
   await loadNodeInfo();
   await loadAlwaysAccelerateSetting();
+  await loadCustomNodes();
 
-  // 始终加速复选框事件
   alwaysAccelerateCheckbox.addEventListener('change', async (e) => {
     const shouldAccelerate = e.target.checked;
 
@@ -41,6 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       await loadNodeInfo();
+      await loadCustomNodes();
       statusText.textContent = '测速完成';
     } catch (error) {
       console.error('测速失败:', error);
@@ -49,7 +53,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       speedtestBtn.disabled = false;
       speedtestBtn.innerHTML = '⚡ 节点测速';
 
-      // 3 秒后恢复状态文本
       setTimeout(async () => {
         if (speedtestBtn.disabled === false) {
           const cached = await browser.storage.local.get(['gh_accelerator_best_node']);
@@ -74,6 +77,64 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
   });
+
+  refreshLocationBtn.addEventListener('click', async () => {
+    refreshLocationBtn.disabled = true;
+    refreshLocationBtn.innerHTML = '<span class="loading-spinner"></span> 检测中...';
+    locationInfoEl.textContent = '重新检测中...';
+
+    try {
+      const response = await browser.runtime.sendMessage({ type: 'REFRESH_LOCATION' });
+      if (response && response.success) {
+        await loadLocationInfo();
+      }
+    } catch (error) {
+      console.error('重新测试IP失败:', error);
+      locationInfoEl.textContent = '检测失败';
+    } finally {
+      refreshLocationBtn.disabled = false;
+      refreshLocationBtn.innerHTML = '🌍 重测IP';
+    }
+  });
+
+  addCustomNodeBtn.addEventListener('click', async () => {
+    const url = customNodeUrlInput.value.trim();
+    if (!url) {
+      alert('请输入节点URL');
+      return;
+    }
+
+    if (!url.startsWith('https://')) {
+      alert('节点URL必须以https://开头');
+      return;
+    }
+
+    addCustomNodeBtn.disabled = true;
+    addCustomNodeBtn.textContent = '添加中...';
+
+    try {
+      const response = await browser.runtime.sendMessage({ type: 'ADD_CUSTOM_NODE', url });
+      if (response && response.success) {
+        customNodeUrlInput.value = '';
+        await loadCustomNodes();
+        await loadNodeInfo();
+      } else {
+        alert('添加失败: ' + (response?.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('添加自定义节点失败:', error);
+      alert('添加失败');
+    } finally {
+      addCustomNodeBtn.disabled = false;
+      addCustomNodeBtn.textContent = '➕ 添加';
+    }
+  });
+
+  customNodeUrlInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      addCustomNodeBtn.click();
+    }
+  });
 });
 
 async function loadNodeInfo() {
@@ -85,10 +146,9 @@ async function loadNodeInfo() {
   const statusText = document.getElementById('status-text');
 
   try {
-    // 获取缓存的节点列表和当前选择的节点
     const cached = await browser.storage.local.get(['gh_accelerator_best_node', 'gh_accelerator_node_list']);
     const currentData = cached.gh_accelerator_best_node;
-    const nodeList = cached.gh_accelerator_node_list;
+    const apiNodeList = cached.gh_accelerator_node_list || [];
 
     if (currentData && currentData.node) {
       statusText.textContent = '运行中';
@@ -96,92 +156,92 @@ async function loadNodeInfo() {
 
       const currentUrl = currentData.node.url;
 
-      // 如果有节点列表，显示所有节点；否则只显示当前节点
-      if (nodeList && nodeList.length > 0) {
-        // 按延迟排序
-        const sortedNodes = nodeList.sort((a, b) => {
-          if (a.latency === -1) return 1;
-          if (b.latency === -1) return -1;
-          return a.latency - b.latency;
-        });
+      const customNodesResult = await browser.runtime.sendMessage({ type: 'GET_CUSTOM_NODES' });
+      const customNodes = customNodesResult?.customNodes || [];
 
-        // 检查是否存在用户自选的节点（标记为 isUserSelected）
-        const userSelectedNode = sortedNodes.find(n => n.isUserSelected === true);
+      const sortedApiNodes = apiNodeList.sort((a, b) => {
+        if (a.latency === -1) return 1;
+        if (b.latency === -1) return -1;
+        return a.latency - b.latency;
+      });
 
-        // 如果有自选节点，将其移动到第一位
-        let displayNodes = sortedNodes;
-        if (userSelectedNode) {
-          const index = sortedNodes.indexOf(userSelectedNode);
-          if (index > 0) {
-            displayNodes = [userSelectedNode, ...sortedNodes.filter((_, i) => i !== index)];
+      const sortedCustomNodes = customNodes.sort((a, b) => {
+        if (a.latency === -1) return 1;
+        if (b.latency === -1) return -1;
+        return a.latency - b.latency;
+      });
+
+      const allNodes = [
+        ...sortedCustomNodes.map(n => ({...n, _isCustom: true})),
+        ...sortedApiNodes
+      ];
+
+      let optionsHTML = '';
+      allNodes.forEach((node, index) => {
+        const domain = extractDomain(node.url);
+        const latencyStr = node.latency > 0 ? `${node.latency}ms` : '默认';
+        const selected = node.url === currentUrl ? 'selected' : '';
+
+        let emoji;
+        if (node._isCustom) {
+          emoji = '⭐';
+        } else if (node.isUserSelected === true) {
+          emoji = '🎯';
+        } else if (node.latency > 0) {
+          const customCount = allNodes.filter(n => n._isCustom).length;
+          const apiIndex = index - customCount;
+          const totalApiNodes = allNodes.length - customCount;
+          const ratio = totalApiNodes > 0 ? apiIndex / totalApiNodes : 0;
+          if (ratio < 0.33) {
+            emoji = '🟢';
+          } else if (ratio < 0.66) {
+            emoji = '🟠';
+          } else {
+            emoji = '🔴';
           }
+        } else {
+          emoji = '⚪';
         }
 
-        // 构建下拉选项
-        let optionsHTML = '';
-        displayNodes.forEach((node, index) => {
-          const domain = extractDomain(node.url);
-          const latencyStr = node.latency > 0 ? `${node.latency}ms` : '默认';
-          const selected = node.url === currentUrl ? 'selected' : '';
+        optionsHTML += `<option value="${node.url}" ${selected}>${emoji} ${domain} (${latencyStr})</option>`;
+      });
 
-          // 显示逻辑：自选 > 🥇 > 🥈 > 🥉
-          let emoji;
-          if (node.isUserSelected === true) {
-            emoji = '🎯 自选';
-          } else if (node.latency > 0) {
-            emoji = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : '⚪'));
-          } else {
-            emoji = '⚪';
-          }
+      nodeSelect.innerHTML = optionsHTML;
 
-          optionsHTML += `<option value="${node.url}" ${selected}>${emoji} ${domain} (${latencyStr})</option>`;
-        });
+      nodeSelect.onchange = async (e) => {
+        const selectedUrl = e.target.value;
+        const selectedNode = allNodes.find(n => n.url === selectedUrl);
 
-        nodeSelect.innerHTML = optionsHTML;
+        if (selectedNode) {
+          console.log('[Popup] 用户选择节点:', selectedNode);
 
-        // 添加节点选择事件监听
-        nodeSelect.onchange = async (e) => {
-          const selectedUrl = e.target.value;
-          const selectedNode = sortedNodes.find(n => n.url === selectedUrl);
+          const nodeToSave = {
+            ...selectedNode,
+            isCustom: selectedNode._isCustom || false,
+            isUserSelected: !selectedNode._isCustom ? true : undefined
+          };
 
-          if (selectedNode) {
-            console.log('[Popup] 用户选择节点:', selectedNode);
-
-            // 标记为用户自选节点
-            const userSelectedNode = {
-              ...selectedNode,
-              isUserSelected: true
-            };
-
-            // 更新当前选择的节点
-            await browser.storage.local.set({
-              gh_accelerator_best_node: {
-                node: userSelectedNode,
-                timestamp: Date.now()
-              }
-            });
-            console.log('[Popup] 缓存已更新');
-
-            // 通知 background 更新，并等待响应
-            const response = await browser.runtime.sendMessage({ type: 'UPDATE_NODE', node: userSelectedNode });
-            if (!response || !response.success) {
-              console.error('[Popup] Background 更新失败:', response);
-              throw new Error('更新失败');
+          await browser.storage.local.set({
+            gh_accelerator_best_node: {
+              node: nodeToSave,
+              timestamp: Date.now()
             }
-            console.log('[Popup] Background 已更新节点:', response.node);
+          });
+          console.log('[Popup] 缓存已更新');
 
-            // 刷新显示
-            await loadNodeInfo();
+          const response = await browser.runtime.sendMessage({ type: 'UPDATE_NODE', node: nodeToSave });
+          if (!response || !response.success) {
+            console.error('[Popup] Background 更新失败:', response);
+            throw new Error('更新失败');
           }
-        };
-      } else {
-        // 只有单个节点
-        nodeSelect.innerHTML = `<option value="${currentUrl}" selected>⚪ ${extractDomain(currentUrl)} (${currentData.node.latency > 0 ? `${currentData.node.latency}ms` : '默认'})</option>`;
-      }
+          console.log('[Popup] Background 已更新节点:', response.node);
 
+          await loadNodeInfo();
+        }
+      };
+  
       nodeSelect.disabled = false;
 
-      // 更新详细信息显示
       nodeUrlEl.textContent = currentUrl.length > 40 ? currentUrl.substring(0, 37) + '...' : currentUrl;
       nodeUrlEl.title = currentUrl;
 
@@ -213,6 +273,66 @@ async function loadNodeInfo() {
   } catch (error) {
     console.error('加载节点信息失败:', error);
     showLoadingState();
+  }
+}
+
+async function loadCustomNodes() {
+  const customNodesList = document.getElementById('custom-nodes-list');
+  if (!customNodesList) return;
+
+  try {
+    const response = await browser.runtime.sendMessage({ type: 'GET_CUSTOM_NODES' });
+    const customNodes = response?.customNodes || [];
+
+    if (customNodes.length === 0) {
+      customNodesList.innerHTML = '<div style="font-size: 12px; color: #999; text-align: center; padding: 8px;">暂无自定义节点</div>';
+      return;
+    }
+
+    let html = '';
+    customNodes.forEach(node => {
+      const domain = extractDomain(node.url);
+      const latencyStr = node.latency > 0 ? `${node.latency}ms` : '未测速';
+      html += `
+        <div class="custom-node-item" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+          <span style="flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${node.url}">
+            ⭐ ${domain}
+          </span>
+          <span style="font-size: 12px; color: ${node.latency > 0 ? (node.latency < 200 ? '#2e7d32' : '#ef6c00') : '#999'};">
+            ${latencyStr}
+          </span>
+          <button class="edit-custom-node-btn" data-url="${node.url}" style="padding: 4px 8px; font-size: 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">✏️</button>
+          <button class="remove-custom-node-btn" data-url="${node.url}" style="padding: 4px 8px; font-size: 12px; border: 1px solid #ff4444; background: white; color: #ff4444; border-radius: 4px; cursor: pointer;">🗑️</button>
+        </div>
+      `;
+    });
+
+    customNodesList.innerHTML = html;
+
+    document.querySelectorAll('.edit-custom-node-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const oldUrl = e.target.dataset.url;
+        const newUrl = prompt('编辑节点URL:', oldUrl);
+        if (newUrl && newUrl !== oldUrl && newUrl.startsWith('https://')) {
+          await browser.runtime.sendMessage({ type: 'UPDATE_CUSTOM_NODE', oldUrl, newUrl });
+          await loadCustomNodes();
+          await loadNodeInfo();
+        }
+      });
+    });
+
+    document.querySelectorAll('.remove-custom-node-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        if (confirm('确定要删除此自定义节点吗？')) {
+          const url = e.target.dataset.url;
+          await browser.runtime.sendMessage({ type: 'REMOVE_CUSTOM_NODE', url });
+          await loadCustomNodes();
+          await loadNodeInfo();
+        }
+      });
+    });
+  } catch (error) {
+    console.error('加载自定义节点失败:', error);
   }
 }
 
@@ -249,29 +369,29 @@ async function loadLocationInfo() {
     if (response && response.location) {
       const loc = response.location;
       const countryNames = {
-        'CN': '🇨🇳 中国大陆',
-        'HK': '🇭🇰 香港',
-        'TW': '🇹🇼 台湾',
-        'US': '🇺🇸 美国',
-        'JP': '🇯🇵 日本',
-        'KR': '🇰🇷 韩国',
-        'SG': '🇸🇬 新加坡',
-        'DE': '🇩🇪 德国',
-        'GB': '🇬🇧 英国',
-        'FR': '🇫🇷 法国'
+        'CN': '中国大陆',
+        'HK': '香港',
+        'TW': '台湾',
+        'US': '美国',
+        'JP': '日本',
+        'KR': '韩国',
+        'SG': '新加坡',
+        'DE': '德国',
+        'GB': '英国',
+        'FR': '法国'
       };
 
-      const countryName = countryNames[loc.country] || `🌐 ${loc.country}`;
+      const countryName = countryNames[loc.country] || loc.country;
 
       let statusText, statusColor, tooltip;
       if (loc.needProxy) {
-        statusText = '🔒 GFW限制';
-        statusColor = '#c62828'; // 红色
+        statusText = 'GFW限制';
+        statusColor = '#c62828';
         tooltip = `IP: ${loc.ip}\n地区: ${countryName}\n状态: 受长城防火墙(GFW)限制\n⚠️ 必须使用代理才能正常访问 GitHub`;
       } else if (loc.isChinaMainland === false && loc.country !== 'unknown') {
-        statusText = '✅ 可直连';
-        statusColor = '#2e7d32'; // 绿色
-        tooltip = `IP: ${loc.ip}\n地区: ${countryName}\n状态: 无GFW限制，可直接访问 GitHub\n`;
+        statusText = '可直连';
+        statusColor = '#2e7d32';
+        tooltip = `IP: ${loc.ip}\n地区: ${countryName}\n状态: 无GFW限制，可直接访问 GitHub`;
       } else {
         statusText = '检测中...';
         statusColor = '#666';
