@@ -1,7 +1,7 @@
 import './browser-polyfill.js';
 
 const CONFIG = {
-  API_URL: 'https://api.akams.cn/github',
+  API_URL: 'https://cdn.akams.cn/hubp/github.json',
   CACHE_KEY: 'gh_accelerator_best_node',
   CACHE_DURATION: 2 * 60 * 60 * 1000,
   SPEED_TEST_COUNT: 'all',
@@ -9,7 +9,8 @@ const CONFIG = {
   GEO_URL: 'https://www.visa.cn/cdn-cgi/trace',
   INTEGRITY_TEST: {
     localIcon: 'icons/icon128.png',
-    remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png'
+    remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png',
+    cloudIconUrl: 'https://cdn.akams.cn/icons/icon128.png'
   },
   FALLBACK_NODES: [
     'https://gh.llkk.cc',
@@ -165,6 +166,62 @@ async function checkProxyStatus() {
   }
 }
 
+// 计算云端 icon 的 SHA-256 哈希值
+async function calculateCloudIconHash() {
+  try {
+    console.log('[完整性检查] 正在获取云端 icon...');
+    const response = await fetch(CONFIG.INTEGRITY_TEST.cloudIconUrl, {
+      cache: 'no-cache'
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    CONFIG.INTEGRITY_TEST.cloudHash = hash;
+    CONFIG.INTEGRITY_TEST.cloudIconSize = arrayBuffer.byteLength;
+    console.log(`[完整性检查] 云端 icon 哈希: ${hash}`);
+    console.log(`[完整性检查] 云端 icon 大小: ${arrayBuffer.byteLength} 字节`);
+    return hash;
+  } catch (error) {
+    console.error('[完整性检查] 获取云端 icon 失败:', error);
+    return null;
+  }
+}
+
+// 验证本地文件是否被商店修改
+async function verifyLocalIntegrity() {
+  try {
+    console.log('[完整性检查] 开始验证本地文件完整性...');
+    const localHash = await calculateLocalIconHash();
+    const cloudHash = await calculateCloudIconHash();
+
+    if (!localHash || !cloudHash) {
+      console.warn('[完整性检查] ⚠️ 无法获取哈希，跳过验证');
+      return { verified: false, useCloudFallback: true };
+    }
+
+    if (localHash === cloudHash) {
+      console.log('[完整性检查] ✅ 本地文件与云端一致，未被修改');
+      return { verified: true, hash: localHash };
+    } else {
+      console.warn('[完整性检查] ❌ 本地文件已被修改（可能被商店压缩）');
+      console.warn(`  本地哈希: ${localHash}`);
+      console.warn(`  云端哈希: ${cloudHash}`);
+      console.warn('[完整性检查] 将使用云端哈希进行后续节点验证');
+      return { verified: false, useCloudFallback: true, localHash, cloudHash };
+    }
+  } catch (error) {
+    console.error('[完整性检查] 验证失败:', error);
+    return { verified: false, useCloudFallback: true, error: error.message };
+  }
+}
+
 // 计算本地 icon 的 SHA-256 哈希值
 async function calculateLocalIconHash() {
   try {
@@ -197,8 +254,12 @@ async function calculateLocalIconHash() {
 async function verifyRemoteIconHash(proxyUrl) {
   try {
     const localHash = CONFIG.INTEGRITY_TEST.localHash || await calculateLocalIconHash();
-    if (!localHash) {
-      throw new Error('本地 icon 哈希未初始化');
+    const cloudHash = CONFIG.INTEGRITY_TEST.cloudHash;
+    
+    // 如果本地被修改过，使用云端哈希进行验证
+    const expectedHash = cloudHash || localHash;
+    if (!expectedHash) {
+      throw new Error('哈希未初始化');
     }
 
     const proxyBaseUrl = proxyUrl.replace(/\/$/, '');
@@ -226,7 +287,7 @@ async function verifyRemoteIconHash(proxyUrl) {
 
     console.log(`[完整性检查] 远程 icon 哈希: ${remoteHash}`);
 
-    if (remoteHash === localHash) {
+    if (remoteHash === expectedHash) {
       console.log('[完整性检查] ✅ 验证通过：代理返回内容完整正确');
       return {
         verified: true,
@@ -235,11 +296,11 @@ async function verifyRemoteIconHash(proxyUrl) {
       };
     } else {
       console.warn('[完整性检查] ❌ 验证失败：哈希不匹配！');
-      console.warn(`  期望: ${localHash}`);
+      console.warn(`  期望: ${expectedHash}${cloudHash ? ' (云端)' : ' (本地)'}`);
       console.warn(`  实际: ${remoteHash}`);
       return {
         verified: false,
-        localHash: localHash,
+        expectedHash: expectedHash,
         remoteHash: remoteHash
       };
     }
@@ -256,7 +317,9 @@ async function fetchProxyNodes() {
     }
   });
   const data = await response.json();
-  return data.data || [];
+  const domains = data.data || [];
+  // 新 API 返回的是纯域名列表，需要添加 https:// 前缀
+  return domains.map(domain => `https://${domain.replace(/^https?:\/\//, '')}`);
 }
 
 async function getCustomNodes() {
@@ -309,7 +372,12 @@ async function speedTestNodes(apiNodes, customNodes = [], options = { testCustom
 
   console.log(`[GitHub Accelerator] 将测试 ${testNodes.length} 个节点`);
 
-  await calculateLocalIconHash();
+  // 验证本地文件完整性
+  const integrityResult = await verifyLocalIntegrity();
+  if (integrityResult.useCloudFallback && integrityResult.cloudHash) {
+    console.log('[完整性检查] 使用云端哈希进行节点验证');
+  }
+
   console.log(`[完整性检查] 使用远程检测图片: ${CONFIG.INTEGRITY_TEST.remoteIconUrl}`);
 
   const promises = testNodes.map(node =>
@@ -395,12 +463,15 @@ async function testSingleNode(proxyUrl) {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const remoteHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
+    const cloudHash = CONFIG.INTEGRITY_TEST.cloudHash;
     const localHash = CONFIG.INTEGRITY_TEST.localHash;
-    const verified = localHash && remoteHash === localHash;
+    // 优先使用云端哈希（如果本地被商店修改过）
+    const expectedHash = cloudHash || localHash;
+    const verified = expectedHash && remoteHash === expectedHash;
 
     if (!verified) {
       console.warn(`[测速] ⚠️ ${proxyUrl} 哈希验证失败`);
-      console.warn(`  期望: ${localHash}`);
+      console.warn(`  期望: ${expectedHash}${cloudHash ? ' (云端)' : ' (本地)'}`);
       console.warn(`  实际: ${remoteHash}`);
     }
 
