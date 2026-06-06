@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #ffffff;
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 640px;
+      width: 100%;
+    }
+
+    .header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #eaeaea;
+      text-align: center;
+    }
+
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .title .normal {
+      color: #24292e;
+    }
+
+    .title .highlight {
+      color: #155DFC;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .section {
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #24292e;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #155DFC;
+    }
+
+    .section p {
+      font-size: 14px;
+      color: #444;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 10px 12px;
+      border: 1px solid #eaeaea;
+      text-align: left;
+    }
+
+    .data-table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .data-table td {
+      color: #555;
+    }
+
+    .notice-card {
+      background: #f8f9fa;
+      border: 1px solid #eaeaea;
+      border-radius: 8px;
+      padding: 14px;
+      margin: 16px 0;
+    }
+
+    .notice-card.warning {
+      background: #fff8e1;
+      border-left: 4px solid #ffc107;
+    }
+
+    .notice-card.info {
+      background: #e8f5e9;
+      border-left: 4px solid #2e7d32;
+    }
+
+    .notice-card p {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .notice-card strong {
+      color: #333;
+    }
+
+    .footer {
+      padding: 24px;
+      border-top: 1px solid #eaeaea;
+      text-align: center;
+    }
+
+    .footer p {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 16px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 12px 32px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-accept {
+      background: #155DFC;
+      color: white;
+    }
+
+    .btn-accept:hover {
+      background: #0d4bb5;
+    }
+
+    .btn-reject {
+      background: #f0f0f0;
+      color: #666;
+      border: 1px solid #ddd;
+    }
+
+    .btn-reject:hover {
+      background: #e0e0e0;
+    }
+
+    .rejected-notice {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .rejected-notice h2 {
+      font-size: 20px;
+      color: #c62828;
+      margin-bottom: 12px;
+    }
+
+    .rejected-notice p {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">
+        <span class="normal">GitHub</span> <span class="highlight">Accelerator</span>
+      </div>
+      <div class="subtitle">隐私政策与数据使用说明</div>
+    </div>
+
+    <div class="content" id="privacy-content">
+      <div class="section">
+        <div class="section-title">欢迎使用</div>
+        <p>GitHub Accelerator 是一款智能 GitHub 下载加速器，通过智能代理节点选择和 302 重定向，为您提供快速的 GitHub 资源下载体验。</p>
+        <p>在使用本扩展之前，请仔细阅读以下隐私政策。点击「同意」即表示您理解并接受本政策的所有内容。</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">数据收集说明</div>
+        <p>本扩展<strong>不会收集、存储或传输</strong>任何个人信息、浏览历史、凭证或敏感数据。不使用任何分析工具、Cookie 或跟踪技术。</p>
+
+        <p>扩展仅在本地浏览器存储中保存以下数据：</p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>数据项</th>
+              <th>存储方式</th>
+              <th>用途</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>最优代理节点缓存</td>
+              <td>本地存储</td>
+              <td>缓存最优代理节点，2小时过期，避免重复测速</td>
+            </tr>
+            <tr>
+              <td>代理节点列表</td>
+              <td>本地存储</td>
+              <td>缓存可用代理节点列表及延迟结果</td>
+            </tr>
+            <tr>
+              <td>始终加速开关</td>
+              <td>本地存储</td>
+              <td>用户偏好设置，自动跳转不显示选择页面</td>
+            </tr>
+            <tr>
+              <td>会话临时禁用标记</td>
+              <td>本地存储</td>
+              <td>临时跳过当前会话的拦截</td>
+            </tr>
+            <tr>
+              <td>域名级偏好设置</td>
+              <td>本地存储</td>
+              <td>用户设置的每域名加速/直连偏好</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-title">即将添加的匿名统计功能</div>
+        <div class="notice-card info">
+          <p><strong>我们计划在未来版本中添加匿名使用统计功能</strong>，用于帮助我们了解扩展的使用情况并向社区展示服务成果。具体统计项如下：</p>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>统计项</th>
+              <th>说明</th>
+              <th>是否匿名</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>累计加速跳转次数</td>
+              <td>加速重定向被触发的总次数（简单计数）</td>
+              <td>是，仅聚合数字</td>
+            </tr>
+            <tr>
+              <td>累计安装/更新次数</td>
+              <td>扩展被安装或更新的总次数</td>
+              <td>是，仅聚合数字</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="notice-card warning">
+          <p><strong>我们绝对不会收集：</strong></p>
+          <p>- 任何个人信息（姓名、邮箱、IP 地址等）</p>
+          <p>- 浏览历史或访问的 URL</p>
+          <p>- 下载的文件名或文件内容</p>
+          <p>- 浏览器书签、密码或任何敏感数据</p>
+          <p>- 任何可追溯到个人的标识符</p>
+        </div>
+
+        <p>统计数据仅用于了解扩展使用情况以及对外展示（如「累计加速突破 X 次」）。数据可能会提交至我们的服务器进行汇总，但绝不会传输任何个人身份信息。</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">网络请求说明</div>
+        <p>扩展会向以下地址发起网络请求：</p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>目标地址</th>
+              <th>发送数据</th>
+              <th>用途</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>cdn.akams.cn</td>
+              <td>无</td>
+              <td>获取可用代理节点列表</td>
+            </tr>
+            <tr>
+              <td>api.ipapi.is / api.ip.sb</td>
+              <td>无</td>
+              <td>检测地理位置（判断是否需要加速）</td>
+            </tr>
+            <tr>
+              <td>代理节点（如 gh.llkk.cc）</td>
+              <td>无</td>
+              <td>测速，下载测试资源</td>
+            </tr>
+            <tr>
+              <td>addon-analytics.hubp.org</td>
+              <td>匿名聚合计数</td>
+              <td>提交匿名统计数据用于汇总</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <div class="section-title">开源与联系方式</div>
+        <p>本扩展完全开源，您可以随时审查源代码以验证本隐私政策的执行情况：</p>
+        <p><a href="https://github.com/hubporg/ghproxy-extension" style="color: #155DFC;" target="_blank">https://github.com/hubporg/ghproxy-extension</a></p>
+      </div>
+    </div>
+
+    <div class="rejected-notice" id="rejected-notice">
+      <h2>功能已限制</h2>
+      <p>您已拒绝隐私政策。扩展的所有加速功能将被禁用，直到您同意本政策为止。</p>
+      <p>如需重新选择，请点击下方按钮。</p>
+    </div>
+
+    <div class="footer">
+      <p>302 重定向 + 智能域名转换 Powered By <a href="https://www.hubp.org"
+          style="color: #155DFC; text-decoration: none;" target="_blank">hubp.org</a></p>
+      <div class="btn-group">
+        <button class="btn btn-accept" id="btn-accept">同意</button>
+        <button class="btn btn-reject" id="btn-reject">拒绝</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="browser-polyfill.js"></script>
+  <script src="privacy.js"></script>
+</body>
+
+</html>

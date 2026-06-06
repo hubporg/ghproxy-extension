@@ -255,7 +255,7 @@ async function verifyRemoteIconHash(proxyUrl) {
   try {
     const localHash = CONFIG.INTEGRITY_TEST.localHash || await calculateLocalIconHash();
     const cloudHash = CONFIG.INTEGRITY_TEST.cloudHash;
-    
+
     // 如果本地被修改过，使用云端哈希进行验证
     const expectedHash = cloudHash || localHash;
     if (!expectedHash) {
@@ -846,7 +846,7 @@ async function initBestNode() {
 
   if (!bestNode) {
     try {
-      const apiNodes = await fetchProxyNodes();
+      const apiNodes = (await fetchProxyNodes()).map(url => ({ url }));
       const customNodes = await getCustomNodes();
       bestNode = await speedTestNodes(apiNodes, customNodes);
       await setCachedNode(bestNode);
@@ -859,16 +859,70 @@ async function initBestNode() {
   return bestNode.url || CONFIG.FALLBACK_NODES[0];
 }
 
-browser.runtime.onInstalled.addListener(() => {
-  console.log('[GitHub Accelerator] 扩展已安装/更新');
-  initBestNode().catch(console.error);
-  createContextMenus();
+browser.runtime.onInstalled.addListener((details) => {
+  console.log('[GitHub Accelerator] 扩展已安装/更新, reason:', details.reason);
 });
 
-setupWebRequestListener();
-setupContextMenuHandler();
+// 服务启动时检查隐私状态（包括 service worker 重启、开发者模式加载等场景）
+let coreFeaturesStarted = false;
 
-console.log('[GitHub Accelerator] 后台服务已启动');
+(async function init() {
+  const result = await browser.storage.local.get('privacy_accepted');
+  // 如果从未设置过隐私状态（首次使用或开发者模式加载），自动打开隐私页面
+  if (result.privacy_accepted === undefined) {
+    console.log('[GitHub Accelerator] 隐私状态未设置，打开隐私政策页面');
+    browser.tabs.create({ url: browser.runtime.getURL('privacy.html') });
+  }
+  checkPrivacyAndStart().catch(console.error);
+})();
+
+async function checkPrivacyAndStart() {
+  const result = await browser.storage.local.get('privacy_accepted');
+  if (result.privacy_accepted === true) {
+    startCoreFeatures();
+  } else {
+    console.log('[GitHub Accelerator] 用户尚未同意隐私政策，核心功能已禁用');
+  }
+}
+
+function startCoreFeatures() {
+  if (coreFeaturesStarted) {
+    console.log('[GitHub Accelerator] 核心功能已启动，跳过重复初始化');
+    return;
+  }
+  coreFeaturesStarted = true;
+  setupWebRequestListener();
+  setupContextMenuHandler();
+  initBestNode().catch(console.error);
+  console.log('[GitHub Accelerator] 核心功能已启动');
+}
+
+// 监听隐私政策接受/拒绝消息
+browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'PRIVACY_ACCEPTED') {
+    console.log('[GitHub Accelerator] 用户已同意隐私政策，启动核心功能');
+    startCoreFeatures();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  if (message.type === 'PRIVACY_REJECTED') {
+    console.log('[GitHub Accelerator] 用户已拒绝隐私政策，核心功能保持禁用');
+    sendResponse({ success: true });
+    return false;
+  }
+
+  if (message.type === 'RESET_PRIVACY') {
+    browser.storage.local.remove('privacy_accepted').then(() => {
+      coreFeaturesStarted = false;
+      console.log('[GitHub Accelerator] 隐私状态已重置，请重新加载扩展以重新弹出隐私页面');
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+});
+
+console.log('[GitHub Accelerator] 后台服务已启动，等待隐私确认...');
 
 function createContextMenus() {
   browser.contextMenus.create({

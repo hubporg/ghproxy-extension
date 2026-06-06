@@ -17,6 +17,7 @@ The extension only stores the following data locally via Browser Storage API:
 | Always accelerate toggle      | `storage.local`      | User preference to automatically redirect without showing the intercept page |
 | Session disable flag          | `storage.local`      | Temporary flag to skip interception for the current session      |
 | Domain-level preferences      | `storage.local`      | Per-domain accelerate/direct preferences set by the user         |
+| Anonymous usage statistics    | `storage.local`      | Aggregate counters for acceleration jumps and install counts     |
 
 ## Data Usage & Storage
 
@@ -25,6 +26,25 @@ All data is stored locally in the user's browser and is never sent to any extern
 - **Local storage**: All cached data and user preferences are stored locally only and are automatically cleared upon extension uninstall.
 - **No sync storage**: This extension does not use `storage.sync`, so no data is synchronized across devices or linked to the user's Google account.
 - **No credentials**: The extension does not require, store, or handle any authentication tokens or credentials.
+
+## Anonymous Statistics
+
+This extension collects **anonymous, aggregate-only** usage statistics to help us understand how the extension is being used. The following data is tracked:
+
+| Statistic                  | Description                                                        |
+| -------------------------- | ------------------------------------------------------------------ |
+| Acceleration jump count    | Total number of times the acceleration redirect was triggered      |
+| Install / update count     | Number of times the extension was installed or updated             |
+
+**What we do NOT collect:**
+- Personal information (name, email, IP address, etc.)
+- Browsing history or visited URLs
+- Downloaded file names or content
+- Browser bookmarks, passwords, or any sensitive data
+- Any identifier that could be linked back to an individual user
+
+**How the data is used:**
+The anonymous aggregate statistics are used solely to understand extension usage patterns and for public-facing metrics (e.g., "over X accelerations delivered"). Data may be submitted to our server for aggregation, but no personally identifiable information is ever transmitted.
 
 ## Data Sharing
 
@@ -48,13 +68,14 @@ The permissions declared in the extension manifest are the minimum required to p
 | `https://codeload.github.com/*`   | Intercept GitHub code download links                         |
 | `https://raw.githubusercontent.com/*` | Intercept GitHub raw file links                          |
 | `https://gist.githubusercontent.com/*` | Intercept GitHub Gist file links                        |
-| `https://api.akams.cn/*`          | Fetch the list of available proxy nodes from the API         |
+| `https://cdn.akams.cn/*`          | Fetch the list of available proxy nodes from the API         |
 
 Network requests made by the extension:
 
 | Destination                        | Data Sent                      | Purpose                                              |
 | ---------------------------------- | ------------------------------ | ---------------------------------------------------- |
-| `https://api.akams.cn/github`     | None (GET request with Origin header) | Fetch available proxy node list               |
+| `https://cdn.akams.cn/hubp/github.json`     | None (GET request with Origin header) | Fetch available proxy node list               |
+| `https://addon-analytics.hubp.org/` | Anonymous aggregate count only (e.g., `{ action: "jump", count: 1 }`) | Submit anonymous usage statistics for aggregation |
 | `https://api.ipapi.is/`           | None                           | Detect user geographic location (country code)       |
 | `https://api.ip.sb/geoip`         | None                           | Fallback geographic location detection               |
 | Proxy node URLs (e.g. `gh.llkk.cc`) | None                        | Speed test proxy nodes by downloading a test resource |

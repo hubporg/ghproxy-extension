@@ -18,6 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadAlwaysAccelerateSetting();
   await loadCustomNodes();
 
+  const privacyLink = document.getElementById('privacy-link');
+  if (privacyLink) {
+    privacyLink.addEventListener('click', () => {
+      browser.tabs.create({ url: browser.runtime.getURL('privacy.html') });
+    });
+  }
+
   alwaysAccelerateCheckbox.addEventListener('change', async (e) => {
     const shouldAccelerate = e.target.checked;
 

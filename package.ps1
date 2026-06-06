@@ -48,7 +48,7 @@ function Create-Zip {
     $archive.Dispose()
 }
 
-$files = @("background.js", "popup.js", "intercept.js", "browser-polyfill.js", "popup.html", "intercept.html", "manifest.json", "icons", "README.md", "LICENSE")
+$files = @("background.js", "popup.js", "privacy.js", "intercept.js", "browser-polyfill.js", "popup.html", "privacy.html", "intercept.html", "manifest.json", "icons", "README.md", "LICENSE")
 
 if ($Target -eq 'chrome' -or $Target -eq 'all') {
     $chromeZip = "$distDir\ghproxy-extension-chrome.zip"

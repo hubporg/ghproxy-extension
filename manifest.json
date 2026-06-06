@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "GitHub Accelerator: GitHub 文件加速",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "智能 GitHub 下载加速器 - 拦截页面模式",
     "permissions": [
         "storage",
@@ -16,7 +16,8 @@
         "*://codeload.github.com/*",
         "*://raw.githubusercontent.com/*",
         "*://gist.githubusercontent.com/*",
-        "https://api.akams.cn/*"
+        "https://cdn.akams.cn/*",
+        "https://addon-analytics.hubp.org/*"
     ],
     "background": {
         "service_worker": "background.js",
@@ -31,7 +32,9 @@
             "resources": [
                 "intercept.html",
                 "intercept.js",
-                "browser-polyfill.js"
+                "browser-polyfill.js",
+                "privacy.html",
+                "privacy.js"
             ],
             "matches": [
                 "<all_urls>"
