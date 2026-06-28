@@ -14,6 +14,7 @@
         "*://codeload.github.com/*",
         "*://raw.githubusercontent.com/*",
         "*://gist.githubusercontent.com/*",
+        "https://hubp.tbedu.top/*",
         "https://addon-analytics.hubp.org/*",
         "https://addon-analytics-hubp.tbedu.top/*"
     ],
