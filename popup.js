@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  const statsLink = document.getElementById('stats-link');
+  if (statsLink) {
+    statsLink.addEventListener('click', () => {
+      browser.tabs.create({ url: browser.runtime.getURL('stats.html') });
+    });
+  }
+
   alwaysAccelerateCheckbox.addEventListener('change', async (e) => {
     const shouldAccelerate = e.target.checked;
 

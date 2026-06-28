@@ -51,7 +51,9 @@
                 "intercept.js",
                 "browser-polyfill.js",
                 "privacy.html",
-                "privacy.js"
+                "privacy.js",
+                "stats.html",
+                "stats-page.js"
             ],
             "matches": [
                 "<all_urls>"

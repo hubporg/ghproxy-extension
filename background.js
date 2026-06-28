@@ -919,6 +919,16 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === 'FLUSH_STATS') {
+    stats.flushStats().then(() => {
+      sendResponse({ success: true });
+    }).catch(err => {
+      console.warn('[Stats] 手动上报失败:', err);
+      sendResponse({ success: false, error: err.message });
+    });
+    return true;
+  }
+
   if (message.type === 'RESET_PRIVACY') {
     browser.storage.local.remove('privacy_accepted').then(() => {
       coreFeaturesStarted = false;
