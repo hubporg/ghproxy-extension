@@ -8,6 +8,17 @@
   </a>
 </div>
 
+<!-- 新增的两张图，路径统一改为 .icons/ 目录 -->
+<div style="display: flex; gap: 20px; justify-content: center; margin-top: 30px; flex-wrap: wrap;">
+  <!-- 第一张：bg.png（位于 .icons/ 下） -->
+  <img src=".icons/bg.png" alt="bg" style="max-width: 100%; height: auto;">
+  
+  <!-- 第二张：xc.png（位于 .icons/ 下），点击跳转至指定链接 -->
+  <a href="https://www.hubp.org/projects/extension" target="_blank">
+    <img src=".icons/xc.png" alt="xc" style="max-width: 100%; height: auto;">
+  </a>
+</div>
+
 [![GitHub](https://img.shields.io/github/license/hubporg/ghproxy-extension)](LICENSE)
 
 智能 GitHub 下载加速器 - 302 重定向模式 · 支持 IDM 等下载工具
