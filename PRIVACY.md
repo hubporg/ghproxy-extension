@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: May 28, 2026**
+**Last updated: June 6, 2026**
 
 GitHub Accelerator is a browser extension that accelerates GitHub resource downloads through intelligent proxy node selection and 302 redirect, with full compatibility for download managers like IDM.
 
@@ -10,14 +10,14 @@ GitHub Accelerator **does not collect, store, or transmit** any personal informa
 
 The extension only stores the following data locally via Browser Storage API:
 
-| Data                          | Storage              | Purpose                                                          |
-| ----------------------------- | -------------------- | ---------------------------------------------------------------- |
-| Best proxy node cache         | `storage.local`      | Cached optimal proxy node with 2-hour TTL to avoid repeated speed tests |
-| Proxy node list               | `storage.local`      | Cached list of available proxy nodes with latency results        |
-| Always accelerate toggle      | `storage.local`      | User preference to automatically redirect without showing the intercept page |
-| Session disable flag          | `storage.local`      | Temporary flag to skip interception for the current session      |
-| Domain-level preferences      | `storage.local`      | Per-domain accelerate/direct preferences set by the user         |
-| Anonymous usage statistics    | `storage.local`      | Aggregate counters for acceleration jumps and install counts     |
+| Data                       | Storage         | Purpose                                                                      |
+| -------------------------- | --------------- | ---------------------------------------------------------------------------- |
+| Best proxy node cache      | `storage.local` | Cached optimal proxy node with 2-hour TTL to avoid repeated speed tests      |
+| Proxy node list            | `storage.local` | Cached list of available proxy nodes with latency results                    |
+| Always accelerate toggle   | `storage.local` | User preference to automatically redirect without showing the intercept page |
+| Session disable flag       | `storage.local` | Temporary flag to skip interception for the current session                  |
+| Domain-level preferences   | `storage.local` | Per-domain accelerate/direct preferences set by the user                     |
+| Anonymous usage statistics | `storage.local` | Aggregate counters for acceleration jumps and install counts                 |
 
 ## Data Usage & Storage
 
@@ -31,12 +31,13 @@ All data is stored locally in the user's browser and is never sent to any extern
 
 This extension collects **anonymous, aggregate-only** usage statistics to help us understand how the extension is being used. The following data is tracked:
 
-| Statistic                  | Description                                                        |
-| -------------------------- | ------------------------------------------------------------------ |
-| Acceleration jump count    | Total number of times the acceleration redirect was triggered      |
-| Install / update count     | Number of times the extension was installed or updated             |
+| Statistic               | Description                                                   |
+| ----------------------- | ------------------------------------------------------------- |
+| Acceleration jump count | Total number of times the acceleration redirect was triggered |
+| Install / update count  | Number of times the extension was installed or updated        |
 
 **What we do NOT collect:**
+
 - Personal information (name, email, IP address, etc.)
 - Browsing history or visited URLs
 - Downloaded file names or content
@@ -56,30 +57,31 @@ No personal information is sold, rented, or disclosed to any external party.
 
 The permissions declared in the extension manifest are the minimum required to provide its functionality:
 
-| Permission                        | Reason                                                       |
-| --------------------------------- | ------------------------------------------------------------ |
-| `storage`                         | Save settings and cache proxy node data locally              |
-| `contextMenus`                    | Add right-click menu items for copying/opening accelerated links |
-| `activeTab`                       | Access the current tab to inject notification scripts        |
-| `scripting`                       | Execute scripts to display in-page notifications             |
-| `tabs`                            | Intercept and redirect GitHub download navigation            |
-| `webNavigation`                   | Detect navigation to GitHub download URLs before they load   |
-| `https://github.com/*`            | Intercept GitHub download links (Releases, Archive, Raw, Blob) |
-| `https://codeload.github.com/*`   | Intercept GitHub code download links                         |
-| `https://raw.githubusercontent.com/*` | Intercept GitHub raw file links                          |
-| `https://gist.githubusercontent.com/*` | Intercept GitHub Gist file links                        |
-| `https://cdn.akams.cn/*`          | Fetch the list of available proxy nodes from the API         |
+| Permission                                 | Reason                                                           |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `storage`                                  | Save settings and cache proxy node data locally                  |
+| `contextMenus`                             | Add right-click menu items for copying/opening accelerated links |
+| `scripting`                                | Execute scripts to display in-page notifications                 |
+| `webNavigation`                            | Detect navigation to GitHub download URLs before they load       |
+| `https://github.com/*`                     | Intercept GitHub download links (Releases, Archive, Raw, Blob)   |
+| `https://codeload.github.com/*`            | Intercept GitHub code download links                             |
+| `https://raw.githubusercontent.com/*`      | Intercept GitHub raw file links                                  |
+| `https://gist.githubusercontent.com/*`     | Intercept GitHub Gist file links                                 |
+| `https://hubp.tbedu.top/*`                 | Fetch the list of available proxy nodes from the API             |
+| `https://addon-analytics.hubp.org/*`       | Submit anonymous usage statistics to the aggregation backend     |
+| `https://addon-analytics-hubp.tbedu.top/*` | Submit anonymous usage statistics to the fallback backend        |
 
 Network requests made by the extension:
 
-| Destination                        | Data Sent                      | Purpose                                              |
-| ---------------------------------- | ------------------------------ | ---------------------------------------------------- |
-| `https://cdn.akams.cn/hubp/github.json`     | None (GET request with Origin header) | Fetch available proxy node list               |
-| `https://addon-analytics.hubp.org/` | Anonymous aggregate count only (e.g., `{ action: "jump", count: 1 }`) | Submit anonymous usage statistics for aggregation |
-| `https://api.ipapi.is/`           | None                           | Detect user geographic location (country code)       |
-| `https://api.ip.sb/geoip`         | None                           | Fallback geographic location detection               |
-| Proxy node URLs (e.g. `gh.llkk.cc`) | None                        | Speed test proxy nodes by downloading a test resource |
-| `https://raw.githubusercontent.com/*` | None                        | Verify proxy node integrity via hash comparison      |
+| Destination                                            | Data Sent                                                                                                 | Purpose                                                |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `https://hubp.tbedu.top/nodes.json`                    | None (GET request with Origin header)                                                                     | Fetch available proxy node list                        |
+| `https://addon-analytics.hubp.org/stats/collect`       | Anonymous aggregate count only (e.g., `{ jumps: 1, installs: 0, browser: "chromium", version: "1.0.7" }`) | Submit anonymous usage statistics for aggregation      |
+| `https://addon-analytics-hubp.tbedu.top/stats/collect` | Anonymous aggregate count only (same payload as above)                                                    | Fallback endpoint used when the primary is unreachable |
+| `https://api.ipapi.is/`                                | None                                                                                                      | Detect user geographic location (country code)         |
+| `https://api.ip.sb/geoip`                              | None                                                                                                      | Fallback geographic location detection                 |
+| Proxy node URLs (e.g. `gh.llkk.cc`)                    | None                                                                                                      | Speed test proxy nodes by downloading a test resource  |
+| `https://raw.githubusercontent.com/*`                  | None                                                                                                      | Verify proxy node integrity via hash comparison        |
 
 No personal data, browsing history, or user identifiers are included in any network request. Geographic detection is used solely to determine whether the user's region requires proxy acceleration (e.g., GFW-restricted areas) and is not stored or transmitted.
 

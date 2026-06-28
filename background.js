@@ -1,7 +1,8 @@
 import './browser-polyfill.js';
+import * as stats from './stats.js';
 
 const CONFIG = {
-  API_URL: 'https://cdn.akams.cn/hubp/github.json',
+  API_URL: 'https://hubp.tbedu.top/nodes.json',
   CACHE_KEY: 'gh_accelerator_best_node',
   CACHE_DURATION: 2 * 60 * 60 * 1000,
   SPEED_TEST_COUNT: 'all',
@@ -10,7 +11,7 @@ const CONFIG = {
   INTEGRITY_TEST: {
     localIcon: 'icons/icon128.png',
     remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png',
-    cloudIconUrl: 'https://cdn.akams.cn/icons/icon128.png'
+    cloudIconUrl: 'https://hubp.tbedu.top/icons/icon128.png'
   },
   FALLBACK_NODES: [
     'https://gh.llkk.cc',
@@ -676,6 +677,7 @@ function setupWebRequestListener() {
             browser.tabs.update(details.tabId, { url: acceleratedUrl }).then(() => {
               setTimeout(() => { navigatingToInternceptPage = false; }, 300);
             });
+            stats.incrementJumpCount().catch(err => console.warn('[Stats] 计数失败:', err));
             return;
           }
 
@@ -689,6 +691,7 @@ function setupWebRequestListener() {
           browser.tabs.update(details.tabId, { url: interceptUrl }).then(() => {
             setTimeout(() => { navigatingToInternceptPage = false; }, 300);
           });
+          stats.incrementJumpCount().catch(err => console.warn('[Stats] 计数失败:', err));
         });
       }
     }
@@ -861,6 +864,8 @@ async function initBestNode() {
 
 browser.runtime.onInstalled.addListener((details) => {
   console.log('[GitHub Accelerator] 扩展已安装/更新, reason:', details.reason);
+  // 统计：安装或更新都 +1
+  stats.incrementInstallCount().catch(err => console.warn('[Stats] 计数失败:', err));
 });
 
 // 服务启动时检查隐私状态（包括 service worker 重启、开发者模式加载等场景）
@@ -874,6 +879,8 @@ let coreFeaturesStarted = false;
     browser.tabs.create({ url: browser.runtime.getURL('privacy.html') });
   }
   checkPrivacyAndStart().catch(console.error);
+  // 启动统计定时上报
+  stats.startReportScheduler();
 })();
 
 async function checkPrivacyAndStart() {

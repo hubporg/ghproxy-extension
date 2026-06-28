@@ -1,3 +1,11 @@
 /dist
 /.trae
 ghproxy-extension.pem
+
+# 统计后端运行时数据
+/data/
+/stats-server/data/
+node_modules/
+*.log
+.env
+.DS_Store

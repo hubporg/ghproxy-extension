@@ -48,9 +48,10 @@ function Create-Zip {
     $archive.Dispose()
 }
 
-$files = @("background.js", "popup.js", "privacy.js", "intercept.js", "browser-polyfill.js", "popup.html", "privacy.html", "intercept.html", "manifest.json", "icons", "README.md", "LICENSE")
+$files = @("background.js", "popup.js", "privacy.js", "intercept.js", "browser-polyfill.js", "stats.js", "popup.html", "privacy.html", "intercept.html", "manifest.json", "icons", "README.md", "LICENSE")
 
 if ($Target -eq 'chrome' -or $Target -eq 'all') {
+    # Chrome 打包：直接使用 manifest.json
     $chromeZip = "$distDir\ghproxy-extension-chrome.zip"
     if (Test-Path $chromeZip) {
         Remove-Item $chromeZip -Force
@@ -60,14 +61,25 @@ if ($Target -eq 'chrome' -or $Target -eq 'all') {
 }
 
 if ($Target -eq 'firefox' -or $Target -eq 'all') {
+    # Firefox 打包：临时把 manifest.json 重命名为 manifest-chrome.json 备份
+    # 再用 manifest-firefox.json 覆盖为 manifest.json，打包完恢复
+    if (Test-Path "manifest.json") {
+        Rename-Item manifest.json manifest-chrome.json -Force
+    }
     Copy-Item manifest-firefox.json manifest.json -Force
+
     $firefoxZip = "$distDir\ghproxy-extension-firefox.zip"
     if (Test-Path $firefoxZip) {
         Remove-Item $firefoxZip -Force
     }
     Create-Zip -ZipPath $firefoxZip -Files $files
-    git checkout -- manifest.json
     Write-Host "Firefox zip: $firefoxZip"
+
+    # Firefox 打包完成后恢复 manifest.json
+    Remove-Item manifest.json -Force
+    if (Test-Path "manifest-chrome.json") {
+        Rename-Item manifest-chrome.json manifest.json -Force
+    }
 }
 
 if ($Target -eq 'all') {
