@@ -898,6 +898,7 @@ function startCoreFeatures() {
     return;
   }
   coreFeaturesStarted = true;
+  createContextMenus();
   setupWebRequestListener();
   setupContextMenuHandler();
   initBestNode().catch(console.error);
@@ -941,7 +942,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 console.log('[GitHub Accelerator] 后台服务已启动，等待隐私确认...');
 
-function createContextMenus() {
+async function createContextMenus() {
+  // 先移除已有菜单，防止 Service Worker 重启后重复创建报错
+  await browser.contextMenus.removeAll();
+
   browser.contextMenus.create({
     id: 'github-accelerator-copy',
     title: '🚀 复制 GitHub 加速链接',

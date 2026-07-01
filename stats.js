@@ -22,7 +22,7 @@ const STORAGE_KEYS = {
 };
 
 const BATCH_THRESHOLD = 5; // 累积 5 次提交一次
-const REPORT_INTERVAL = 30 * 60 * 1000; // 或每 30 分钟提交一次
+const REPORT_INTERVAL = 5 * 60 * 1000; // 或每 5 分钟提交一次（与缓存检查同步）
 
 /**
  * 检测浏览器类型
@@ -78,11 +78,14 @@ async function incrementJumpCount() {
  * 增加安装/更新计数并标记上报
  */
 async function incrementInstallCount() {
-  if (!(await isPrivacyAccepted())) return;
+  // 始终增加本地计数，不受隐私状态影响
   const result = await browser.storage.local.get(STORAGE_KEYS.INSTALL_COUNT);
   const current = result[STORAGE_KEYS.INSTALL_COUNT] || 0;
   await browser.storage.local.set({ [STORAGE_KEYS.INSTALL_COUNT]: current + 1 });
-  await enqueueReport('install');
+  // 仅在用户同意隐私政策后才加入上报队列
+  if (await isPrivacyAccepted()) {
+    await enqueueReport('install');
+  }
 }
 
 /**
