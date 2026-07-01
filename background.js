@@ -898,7 +898,7 @@ function startCoreFeatures() {
     return;
   }
   coreFeaturesStarted = true;
-  createContextMenus();
+  createContextMenus().catch(console.error);
   setupWebRequestListener();
   setupContextMenuHandler();
   initBestNode().catch(console.error);
