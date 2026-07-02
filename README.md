@@ -43,6 +43,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 
 - **Microsoft Edge 扩展商店**: [GitHub Accelerator](https://microsoftedge.microsoft.com/addons/detail/pingkpgackfhaonibagjlibmobkhgdml)
 - **Firefox Add-ons 商店**: [GitHub Accelerator](https://addons.mozilla.org/addon/github-accelerator/)
+- **Chrome Web Store**: [GitHub Accelerator](https://chromewebstore.google.com/detail/github-accelerator-github/bcbnfbcmbcoogjihnoediilgpfohkdef)
 
 ### 手动安装
 
@@ -72,14 +73,17 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 ### 加速模式
 
 #### 1. 手动选择模式（默认）
+
 - 访问 GitHub 下载链接时显示拦截页面
 - 用户可手动选择"使用加速链接"或"直接访问"
 
 #### 2. 始终加速模式
+
 - 在 popup 页面或拦截页面勾选"始终使用加速链接"
 - 访问 GitHub 下载链接时自动跳转，不再显示选择页面
 
 #### 3. 域名偏好模式
+
 - 对特定域名设置始终加速或始终直连
 - 优先级高于全局设置
 
@@ -96,6 +100,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 ### 右键菜单功能
 
 在 GitHub 链接上右键点击，可选择：
+
 - 🚀 复制 GitHub 加速链接
 - ⚡ 打开 GitHub 加速链接（新标签页）
 
@@ -114,7 +119,6 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 3. **URL 转换**：将 GitHub 原始链接转换为代理加速链接
 4. **智能拦截**：使用 `webNavigation` API 在导航前拦截并转换链接
 5. **缓存机制**：缓存最优节点 2 小时，避免频繁测速
-
 
 ## 🔮 TODO
 
