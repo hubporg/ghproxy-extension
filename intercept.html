@@ -105,6 +105,55 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .copy-btn {
+      border: 1px solid #ddd;
+      background: #fff;
+      color: #333;
+      padding: 3px 9px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      text-transform: none;
+      letter-spacing: 0;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .copy-btn:hover {
+      background: #f0f0f0;
+    }
+
+    .copy-btn:active {
+      transform: scale(0.96);
+    }
+
+    .copy-btn.copied {
+      background: #2da44e;
+      color: #fff;
+      border-color: #2da44e;
+    }
+
+    .copy-btn.btn-primary-text {
+      background: #155DFC;
+      color: #fff;
+      border-color: #155DFC;
+    }
+
+    .copy-btn.btn-primary-text:hover {
+      background: #0d4bb5;
+      border-color: #0d4bb5;
+    }
+
+    .copy-btn.btn-primary-text.copied {
+      background: #2da44e;
+      border-color: #2da44e;
     }
 
     @media (min-width: 768px) {
@@ -435,8 +484,19 @@
       </div>
 
       <div class="link-info">
-        <div class="info-label">原始链接：</div>
+        <div class="info-label">
+          <span>原始链接：</span>
+          <button type="button" class="copy-btn" id="copy-original-btn" title="复制原始链接">📋 复制</button>
+        </div>
         <div class="info-url" id="original-url">加载中...</div>
+      </div>
+
+      <div class="link-info">
+        <div class="info-label">
+          <span>加速链接：</span>
+          <button type="button" class="copy-btn btn-primary-text" id="copy-accel-btn" title="复制加速链接">⚡ 复制</button>
+        </div>
+        <div class="info-url" id="accel-url">加载中...</div>
       </div>
 
       <div class="button-group">

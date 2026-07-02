@@ -15,6 +15,9 @@
 
   // DOM 元素
   const originalUrlEl = document.getElementById('original-url');
+  const accelUrlEl = document.getElementById('accel-url');
+  const copyOriginalBtn = document.getElementById('copy-original-btn');
+  const copyAccelBtn = document.getElementById('copy-accel-btn');
   const accelerateBtn = document.getElementById('accelerate-btn');
   const directBtn = document.getElementById('direct-btn');
   const backBtn = document.getElementById('back-btn');
@@ -55,6 +58,9 @@
 
     // 显示原始链接
     originalUrlEl.textContent = originalUrl;
+
+    // 显示加速链接
+    if (accelUrlEl) accelUrlEl.textContent = acceleratedUrl || '生成中...';
 
     // 设置按钮链接
     accelerateBtn.href = acceleratedUrl;
@@ -189,6 +195,7 @@
               acceleratedUrl = `${proxyBaseUrl}/${originalUrl}`;
               accelerateBtn.href = acceleratedUrl;
             }
+            if (accelUrlEl) accelUrlEl.textContent = acceleratedUrl;
 
             if (countdownTimer) {
               clearInterval(countdownTimer);
@@ -386,6 +393,18 @@
       // href 已经在 init() 中设置
     });
 
+    // 复制按钮
+    if (copyOriginalBtn) {
+      copyOriginalBtn.addEventListener('click', () => copyToClipboard(originalUrl, copyOriginalBtn, '📋 复制', '✅ 已复制'));
+    }
+    if (copyAccelBtn) {
+      copyAccelBtn.addEventListener('click', () => {
+        const text = accelUrlEl.textContent;
+        if (text === '生成中...') return;
+        copyToClipboard(text, copyAccelBtn, '⚡ 复制', '✅ 已复制');
+      });
+    }
+
     // 直接访问按钮点击 - 通知 background 在 10s 内不拦截该 URL
     directBtn.addEventListener('click', (e) => {
       console.log('[Intercept] 用户选择直接访问，跳过拦截 10s');
@@ -442,6 +461,7 @@
             } else {
               acceleratedUrl = `${proxyBaseUrl}/${originalUrl}`;
             }
+            if (accelUrlEl) accelUrlEl.textContent = acceleratedUrl;
           }
         }
 
@@ -591,5 +611,38 @@
       countdownTimer = null;
     }
     countdownEl.classList.add('hidden');
+  }
+
+  function copyToClipboard(text, btn, defaultText, successText) {
+    if (!text) return;
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) { /* noop */ }
+      ta.remove();
+    };
+
+    const onSuccess = () => {
+      if (!btn) return;
+      btn.classList.add('copied');
+      btn.textContent = successText;
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.textContent = defaultText;
+      }, 1500);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
+        fallback();
+        onSuccess();
+      });
+    } else {
+      fallback();
+      onSuccess();
+    }
   }
 })();
