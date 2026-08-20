@@ -307,6 +307,12 @@
 
       <div class="section">
         <div class="section-title">网络请求说明</div>
+        <div class="notice-card warning">
+          <p><strong>关于地理位置检测的提示：</strong></p>
+          <p>为判断您是否位于中国大陆（决定是否需要加速），扩展会通过 Cloudflare 边缘节点的 <code>/cdn-cgi/trace</code> 端点获取您的 IP 所属地区。该端点直接由 Cloudflare 网络应答，不经过任何第三方服务器。</p>
+          <p>检测顺序：优先请求自有域名 <strong>gh.dpik.top</strong>（您的 IP 不会发送给任何第三方）；如不可用则依次回退到 visa.cn、cloudflare.com（此时您的 IP 会暴露给 Cloudflare/Visa）；最后回退到第三方服务（api.ipapi.is / api.ip.sb，此时您的 IP 会暴露给上述第三方）。</p>
+          <p>我们本身<strong>不会存储、记录或上报</strong>您的 IP 地址，也无法控制第三方如何处理该信息。如果您无法接受本隐私政策，建议直接卸载本扩展。</p>
+        </div>
         <p>扩展会向以下地址发起网络请求：</p>
         <table class="data-table">
           <thead>
@@ -323,12 +329,22 @@
               <td>获取可用代理节点列表</td>
             </tr>
             <tr>
-              <td>api.ipapi.is / api.ip.sb</td>
-              <td>无</td>
-              <td>检测地理位置（判断是否需要加速）</td>
+              <td>gh.dpik.top/cdn-cgi/trace（自有域名）</td>
+              <td>IP 地址（仅用于判断所属地区，不存储、不记录）</td>
+              <td>检测地理位置（优先，数据不经过第三方）</td>
             </tr>
             <tr>
-              <td>代理节点（如 gh.llkk.cc）</td>
+              <td>www.visa.cn / www.cloudflare.com 的 /cdn-cgi/trace</td>
+              <td>IP 地址（仅用于判断所属地区，不存储、不记录）</td>
+              <td>检测地理位置（兜底 1，由 Cloudflare/Visa 应答）</td>
+            </tr>
+            <tr>
+              <td>api.ipapi.is / api.ip.sb</td>
+              <td>IP 地址（仅用于判断所属地区，不存储、不记录）</td>
+              <td>检测地理位置（兜底 2，仅当前两者不可用时）</td>
+            </tr>
+            <tr>
+              <td>代理节点（如 gh.dpik.top）</td>
               <td>无</td>
               <td>测速，下载测试资源</td>
             </tr>

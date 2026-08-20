@@ -70,6 +70,11 @@ The permissions declared in the extension manifest are the minimum required to p
 | `https://hubp.tbedu.top/*`                 | Fetch the list of available proxy nodes from the API             |
 | `https://addon-analytics.hubp.org/*`       | Submit anonymous usage statistics to the aggregation backend     |
 | `https://addon-analytics-hubp.tbedu.top/*` | Submit anonymous usage statistics to the fallback backend        |
+| `https://gh.dpik.top/*`                    | Geographic detection via Cloudflare trace endpoint (own domain)  |
+| `https://www.visa.cn/*`                    | Fallback geographic detection via Cloudflare trace endpoint      |
+| `https://www.cloudflare.com/*`             | Fallback geographic detection via Cloudflare trace endpoint      |
+| `https://api.ipapi.is/*`                   | Last-resort fallback geographic detection                        |
+| `https://api.ip.sb/*`                      | Last-resort fallback geographic detection                        |
 
 Network requests made by the extension:
 
@@ -78,9 +83,12 @@ Network requests made by the extension:
 | `https://hubp.tbedu.top/nodes.json`                    | None (GET request with Origin header)                                                                     | Fetch available proxy node list                        |
 | `https://addon-analytics.hubp.org/stats/collect`       | Anonymous aggregate count only (e.g., `{ jumps: 1, installs: 0, browser: "chromium", version: "1.0.7" }`) | Submit anonymous usage statistics for aggregation      |
 | `https://addon-analytics-hubp.tbedu.top/stats/collect` | Anonymous aggregate count only (same payload as above)                                                    | Fallback endpoint used when the primary is unreachable |
-| `https://api.ipapi.is/`                                | None                                                                                                      | Detect user geographic location (country code)         |
-| `https://api.ip.sb/geoip`                              | None                                                                                                      | Fallback geographic location detection                 |
-| Proxy node URLs (e.g. `gh.llkk.cc`)                    | None                                                                                                      | Speed test proxy nodes by downloading a test resource  |
+| `https://gh.dpik.top/cdn-cgi/trace`        | IP address (used only to determine country, not stored)          | Detect user geographic location (own domain, no third party) |
+| `https://www.visa.cn/cdn-cgi/trace`        | IP address (used only to determine country, not stored)          | Fallback geographic detection (answered by Cloudflare/Visa)   |
+| `https://www.cloudflare.com/cdn-cgi/trace` | IP address (used only to determine country, not stored)          | Fallback geographic detection (answered by Cloudflare)        |
+| `https://api.ipapi.is/`                    | IP address (used only to determine country, not stored)          | Last-resort geographic detection (third party)                |
+| `https://api.ip.sb/geoip`                  | IP address (used only to determine country, not stored)          | Last-resort geographic detection (third party)                |
+| Proxy node URLs (e.g. `gh.dpik.top`)       | None                                                                                                      | Speed test proxy nodes by downloading a test resource  |
 | `https://raw.githubusercontent.com/*`                  | None                                                                                                      | Verify proxy node integrity via hash comparison        |
 
 No personal data, browsing history, or user identifiers are included in any network request. Geographic detection is used solely to determine whether the user's region requires proxy acceleration (e.g., GFW-restricted areas) and is not stored or transmitted.

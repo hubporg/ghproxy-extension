@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "GitHub Accelerator: GitHub 文件加速",
-    "version": "1.0.9",
+    "version": "1.1.0",
     "description": "智能 GitHub 下载加速器 - 拦截页面模式",
     "permissions": [
         "storage",
@@ -17,15 +17,51 @@
         "*://gist.githubusercontent.com/*",
         "https://hubp.tbedu.top/*",
         "https://addon-analytics.hubp.org/*",
-        "https://addon-analytics-hubp.tbedu.top/*"
+        "https://addon-analytics-hubp.tbedu.top/*",
+        "https://gh.dpik.top/*",
+        "https://www.visa.cn/*",
+        "https://www.cloudflare.com/*",
+        "https://api.ipapi.is/*",
+        "https://api.ip.sb/*"
     ],
     "background": {
         "scripts": [
             "browser-polyfill.js",
+            "shared/link-patterns.js",
             "background.js"
         ],
         "type": "module"
     },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://github.com/*",
+                "*://codeload.github.com/*",
+                "*://raw.githubusercontent.com/*",
+                "*://gist.githubusercontent.com/*"
+            ],
+            "js": [
+                "content/main-hooks.js"
+            ],
+            "run_at": "document_start",
+            "all_frames": false,
+            "world": "MAIN"
+        },
+        {
+            "matches": [
+                "*://github.com/*",
+                "*://codeload.github.com/*",
+                "*://raw.githubusercontent.com/*",
+                "*://gist.githubusercontent.com/*"
+            ],
+            "js": [
+                "shared/link-patterns.js",
+                "content/bridge.js"
+            ],
+            "run_at": "document_start",
+            "all_frames": false
+        }
+    ],
     "browser_specific_settings": {
         "gecko": {
             "id": "github-accelerator@hubp.org",

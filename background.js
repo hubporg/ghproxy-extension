@@ -1,5 +1,8 @@
 import './browser-polyfill.js';
+import './shared/link-patterns.js';
 import * as stats from './stats.js';
+
+const LINK_PATTERNS = globalThis.__GHX_LINK_PATTERNS__;
 
 const CONFIG = {
   API_URL: 'https://hubp.tbedu.top/nodes.json',
@@ -7,25 +10,21 @@ const CONFIG = {
   CACHE_DURATION: 2 * 60 * 60 * 1000,
   SPEED_TEST_COUNT: 'all',
   SPEED_TEST_TIMEOUT: 5000,
-  GEO_URL: 'https://www.visa.cn/cdn-cgi/trace',
+  // Cloudflare 边缘节点自带的 trace 端点（text/plain，返回访问者自己的 loc 国家码与 ip），
+  // 无需服务器、无限次数；gh.dpik.top 为自有域名优先，其余为兜底
+  CF_TRACE_ENDPOINTS: [
+    'https://gh.dpik.top/cdn-cgi/trace',
+    'https://www.visa.cn/cdn-cgi/trace',
+    'https://www.cloudflare.com/cdn-cgi/trace'
+  ],
   INTEGRITY_TEST: {
     localIcon: 'icons/icon128.png',
     remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png',
     cloudIconUrl: 'https://hubp.tbedu.top/icons/icon128.png'
   },
-  FALLBACK_NODES: [
-    'https://gh.llkk.cc',
+FALLBACK_NODES: [
     'https://gh.dpik.top',
-    'https://github.tbedu.top'
-  ],
-  URL_PATTERNS: [
-    '*://github.com/*/releases/download/*',
-    '*://github.com/*/archive/*',
-    '*://github.com/*/raw/*',
-    '*://github.com/*/blob/*',
-    '*://codeload.github.com/*',
-    '*://raw.githubusercontent.com/*',
-    '*://gist.githubusercontent.com/*/raw/*'
+    'https://github.tbap.top'
   ]
 };
 
@@ -78,6 +77,28 @@ async function detectLocation() {
   try {
     console.log('[GitHub Accelerator] 正在检测地理位置...');
 
+    // 1. Cloudflare trace 端点（返回访问者自己的 IP 与国家码，不依赖第三方服务）
+    for (const url of CONFIG.CF_TRACE_ENDPOINTS) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Origin': 'https://test.hubp.org'
+          }
+        });
+        if (response.ok) {
+          const location = parseCfTrace(await response.text());
+          if (location) {
+            console.log(`[GitHub Accelerator] 地理位置（${url}）：${location.country} (${location.ip})`);
+            logGeoResult(location);
+            return location;
+          }
+        }
+      } catch (error) {
+        console.warn(`[GitHub Accelerator] ${url} 不可用，尝试下一个...`, error);
+      }
+    }
+
+    // 2. 第三方 JSON API 兜底（仅当 CF trace 端点全部不可用时）
     // 尝试使用 api.ipapi.is
     let data;
     try {
@@ -98,25 +119,61 @@ async function detectLocation() {
       data = await response2.json();
     }
 
-    // 解析 JSON 响应
-    const countryCode = data.country_code || data.location?.country_code || 'unknown';
-    const ip = data.ip || 'unknown';
-
-    const location = {
-      ip: ip,
-      country: countryCode,
-      isChinaMainland: countryCode === 'CN', // 只有大陆有 GFW 防火墙
-      needProxy: countryCode === 'CN' // 只有大陆必须用代理
-    };
-
-    console.log(`[GitHub Accelerator] 地理位置：${location.country} (${location.ip})`);
-    console.log(`[GitHub Accelerator] 是否受 GFW 限制（需代理）: ${location.needProxy ? '✅ 是（中国大陆）' : '❌ 否（可直接访问）'}`);
-
-    return location;
+    const location = parseGeoLocation(data);
+    if (location) {
+      console.log(`[GitHub Accelerator] 地理位置（第三方兜底）：${location.country} (${location.ip})`);
+      logGeoResult(location);
+      return location;
+    }
+    return { ip: 'unknown', country: 'unknown', isChinaMainland: false, needProxy: true };
   } catch (error) {
     console.warn('[GitHub Accelerator] 地理位置检测失败，默认启用加速:', error);
     return { ip: 'unknown', country: 'unknown', isChinaMainland: false, needProxy: true };
   }
+}
+
+// 解析 Cloudflare trace 文本（逐行 key=value），取 loc（ISO 国家码）与 ip
+function parseCfTrace(text) {
+  if (!text) return null;
+  const fields = {};
+  for (const line of String(text).split('\n')) {
+    const eq = line.indexOf('=');
+    if (eq > 0) fields[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+  const country = (fields.loc || '').toUpperCase();
+  if (!/^[A-Z]{2}$/.test(country)) return null;
+  const ip = fields.ip || 'unknown';
+  return {
+    ip: ip,
+    country: country,
+    isChinaMainland: country === 'CN', // 只有大陆有 GFW 防火墙
+    needProxy: country === 'CN' // 只有大陆必须用代理
+  };
+}
+
+// 解析地理信息（兼容自建端点与第三方 API 的字段差异）
+function parseGeoLocation(data) {
+  if (!data || typeof data !== 'object') return null;
+  let country = data.country_code || data.countryCode || data.location?.country_code || '';
+  if (typeof data.country === 'object' && data.country) {
+    country = data.country.iso_code || country;
+  } else if (typeof data.country === 'string' && data.country) {
+    country = data.country;
+  }
+  if (country === '中国' || country === '中国大陆' || country === 'China') country = 'CN';
+  const countryCode = String(country).toUpperCase();
+  if (!countryCode || countryCode === 'UNKNOWN') return null;
+  const ip = data.ip || data.query || data.ip_address || 'unknown';
+  return {
+    ip: ip,
+    country: countryCode,
+    isChinaMainland: countryCode === 'CN', // 只有大陆有 GFW 防火墙
+    needProxy: countryCode === 'CN' // 只有大陆必须用代理
+  };
+}
+
+function logGeoResult(location) {
+  console.log(`[GitHub Accelerator] 是否受 GFW 限制（需代理）: ${location.needProxy ? '✅ 是（中国大陆）' : '❌ 否（可直接访问）'}`);
 }
 
 // 检测用户代理状态
@@ -524,13 +581,77 @@ async function clearCache() {
   console.log('[GitHub Accelerator] 缓存已清除');
 }
 
+// 全局共享：URL 跳过拦截缓存（拦截页「直接访问」写入）与页面点击/导航双通道去重
+let skipInterceptUrls = new Map(); // URL -> 过期时间戳
+let recentlyHandled = new Map();   // `${tabId}:${url}` -> 时间戳
+
+// 统一的下载拦截入口：webNavigation 与页面点击 hook（content/main-hooks.js）双通道共用。
+// 返回 'replay'（放行原生行为）或 'done'（扩展已接管导航/打开拦截页）。
+async function routeDownload(tabId, url, refererUrl = '') {
+  // 核心功能未启用（未同意隐私政策）→ 放行
+  if (!coreFeaturesStarted) return 'replay';
+
+  const prefs = await browser.storage.local.get([
+    'gh_accelerator_always_accelerate',
+    'gh_accelerator_disable_session'
+  ]);
+
+  // 会话临时禁用 → 放行
+  if (prefs.gh_accelerator_disable_session) {
+    console.log(`[GitHub Accelerator] 会话临时禁用，放行: ${url}`);
+    return 'replay';
+  }
+
+  // 拦截页「直接访问」写入的跳过期内 → 放行
+  const now = Date.now();
+  const skipExpiry = skipInterceptUrls.get(url);
+  if (skipExpiry) {
+    if (now < skipExpiry) {
+      console.log(`[GitHub Accelerator] ⏭️ 在跳过期内，不拦截：${url}`);
+      return 'replay';
+    }
+    skipInterceptUrls.delete(url);
+  }
+
+  const transformedUrl = transformUrl(url);
+  if (!transformedUrl) return 'replay';
+
+  const cache = await browser.storage.local.get(CONFIG.CACHE_KEY);
+  const proxyUrl = ((cache[CONFIG.CACHE_KEY] && cache[CONFIG.CACHE_KEY].node.url) || CONFIG.FALLBACK_NODES[0]).replace(/\/$/, '');
+  const acceleratedUrl = `${proxyUrl}/${transformedUrl}`;
+
+  // 双通道去重：点击 hook 与 webNavigation 可能同时命中同一链接，短时间内只接管一次
+  const dedupeKey = `${tabId === undefined ? 'unknown' : tabId}:${url}`;
+  const lastHandled = recentlyHandled.get(dedupeKey);
+  if (lastHandled && now - lastHandled < 800) return 'done';
+  // 懒清理：防止 Map 无限增长
+  if (recentlyHandled.size > 500) recentlyHandled.clear();
+  recentlyHandled.set(dedupeKey, now);
+
+  // 全局「始终加速」→ 直接跳转加速链接
+  if (prefs.gh_accelerator_always_accelerate) {
+    console.log(`  🚀 始终加速模式，直接跳转：${acceleratedUrl}`);
+    browser.tabs.update(tabId, { url: acceleratedUrl }).catch(err => console.warn('[GitHub Accelerator] 跳转失败:', err));
+    stats.incrementJumpCount().catch(err => console.warn('[Stats] 计数失败:', err));
+    return 'done';
+  }
+
+  // 打开拦截页面
+  console.log(`  🚀 打开拦截页面`);
+  const interceptUrl = browser.runtime.getURL('intercept.html') +
+    '?url=' + encodeURIComponent(url) +
+    '&accel=' + encodeURIComponent(acceleratedUrl) +
+    '&referer=' + encodeURIComponent(refererUrl || '');
+  browser.tabs.update(tabId, { url: interceptUrl }).catch(err => console.warn('[GitHub Accelerator] 打开拦截页面失败:', err));
+  stats.incrementJumpCount().catch(err => console.warn('[Stats] 计数失败:', err));
+  return 'done';
+}
+
 function setupWebRequestListener() {
   let currentProxyUrl = null;
   let currentLocation = null;
   let userSelectedNode = false;
   let cacheExpiryCheckInterval = null;
-  let navigatingToInternceptPage = false;
-  let skipInterceptUrls = new Map(); // URL -> 过期时间戳
 
   // 检查缓存是否过期，如果过期则自动重新测速
   async function checkCacheExpiry() {
@@ -605,8 +726,6 @@ function setupWebRequestListener() {
     // 跳过拦截页面本身（检查 chrome-extension:// 协议的 intercept.html）
     if (url.startsWith('chrome-extension://') && url.includes('intercept.html')) {
       console.log('[GitHub Accelerator] 跳过拦截页面本身:', url);
-      // 重置导航标记
-      setTimeout(() => { navigatingToInternceptPage = false; }, 1000);
       return;
     }
 
@@ -618,23 +737,15 @@ function setupWebRequestListener() {
 
         console.log(`[GitHub Accelerator] 检查 URL: ${url}`);
         console.log(`[GitHub Accelerator] Hostname: ${hostname}`);
-        console.log(`[GitHub Accelerator] navigatingToInternceptPage: ${navigatingToInternceptPage}`);
 
         // 必须是 github.com 或其子域名（排除代理域名）
-        if (hostname !== 'github.com' &&
-          !hostname.endsWith('.github.com') &&
-          hostname !== 'codeload.github.com' &&
-          hostname !== 'raw.githubusercontent.com' &&
-          hostname !== 'gist.githubusercontent.com') {
+        if (!LINK_PATTERNS.isGitHubHostname(hostname)) {
           console.log(`[GitHub Accelerator] ❌ 非 GitHub 域名，跳过`);
           return false;
         }
 
-        // 检查路径模式
-        const matches = CONFIG.URL_PATTERNS.some(pattern => {
-          const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
-          return regex.test(url);
-        });
+        // 检查路径模式（与 shared/link-patterns.js 单一来源一致）
+        const matches = LINK_PATTERNS.isGitHubDownloadUrl(url);
         console.log(`[GitHub Accelerator] 路径匹配结果：${matches}`);
         return matches;
       } catch (e) {
@@ -643,7 +754,7 @@ function setupWebRequestListener() {
       }
     })();
 
-    if (isGitHubDownload && currentProxyUrl && !navigatingToInternceptPage) {
+    if (isGitHubDownload && currentProxyUrl) {
       // 检查是否在跳过拦截期内
       const now = Date.now();
       const skipExpiry = skipInterceptUrls.get(url);
@@ -655,45 +766,9 @@ function setupWebRequestListener() {
       }
 
       console.log(`\n[GitHub Accelerator] ✅ 开始拦截：${url}`);
-
-      const transformedUrl = transformUrl(url);
-      if (transformedUrl) {
-        const proxyBaseUrl = currentProxyUrl.replace(/\/$/, '');
-        const acceleratedUrl = `${proxyBaseUrl}/${transformedUrl}`;
-
-        // 检查用户偏好
-        browser.storage.local.get([
-          'gh_accelerator_always_accelerate',
-          'gh_accelerator_disable_session'
-        ]).then((result) => {
-          if (result.gh_accelerator_disable_session) {
-            console.log(`  ℹ️ 会话临时禁用，不拦截`);
-            return;
-          }
-
-          if (result.gh_accelerator_always_accelerate) {
-            console.log(`  🚀 始终加速模式，直接跳转：${acceleratedUrl}`);
-            navigatingToInternceptPage = true;
-            browser.tabs.update(details.tabId, { url: acceleratedUrl }).then(() => {
-              setTimeout(() => { navigatingToInternceptPage = false; }, 300);
-            });
-            stats.incrementJumpCount().catch(err => console.warn('[Stats] 计数失败:', err));
-            return;
-          }
-
-          // 打开拦截页面
-          console.log(`  🚀 打开拦截页面`);
-          const interceptUrl = browser.runtime.getURL('intercept.html') +
-            '?url=' + encodeURIComponent(url) +
-            '&accel=' + encodeURIComponent(acceleratedUrl) +
-            '&referer=' + encodeURIComponent(details.url);
-          navigatingToInternceptPage = true;
-          browser.tabs.update(details.tabId, { url: interceptUrl }).then(() => {
-            setTimeout(() => { navigatingToInternceptPage = false; }, 300);
-          });
-          stats.incrementJumpCount().catch(err => console.warn('[Stats] 计数失败:', err));
-        });
-      }
+      routeDownload(details.tabId, url, details.url).catch(err => {
+        console.warn('[GitHub Accelerator] 拦截处理失败:', err);
+      });
     }
   });
 
@@ -831,6 +906,25 @@ function setupWebRequestListener() {
       sendResponse({ success: true });
       return false;
     }
+
+    if (message.type === 'GET_INTERCEPT_STATE') {
+      sendResponse({ active: coreFeaturesStarted });
+      return false;
+    }
+
+    if (message.type === 'INTERCEPT_DOWNLOAD') {
+      const tabId = sender.tab ? sender.tab.id : undefined;
+      if (tabId === undefined) {
+        // 拿不到标签页（页面已关闭等）→ 放行原生行为，避免用户点击被静默吞掉
+        sendResponse({ action: 'replay' });
+        return false;
+      }
+      const refererUrl = sender.tab ? (sender.tab.url || '') : '';
+      routeDownload(tabId, message.url, refererUrl)
+        .then(action => sendResponse({ action: action }))
+        .catch(() => sendResponse({ action: 'replay' }));
+      return true;
+    }
   });
 
   return currentProxyUrl;
@@ -918,25 +1012,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('[GitHub Accelerator] 用户已拒绝隐私政策，核心功能保持禁用');
     sendResponse({ success: true });
     return false;
-  }
-
-  if (message.type === 'FLUSH_STATS') {
-    stats.flushStats().then(() => {
-      sendResponse({ success: true });
-    }).catch(err => {
-      console.warn('[Stats] 手动上报失败:', err);
-      sendResponse({ success: false, error: err.message });
-    });
-    return true;
-  }
-
-  if (message.type === 'RESET_PRIVACY') {
-    browser.storage.local.remove('privacy_accepted').then(() => {
-      coreFeaturesStarted = false;
-      console.log('[GitHub Accelerator] 隐私状态已重置，请重新加载扩展以重新弹出隐私页面');
-      sendResponse({ success: true });
-    });
-    return true;
   }
 });
 
@@ -1027,12 +1102,7 @@ function setupContextMenuHandler() {
 
 function isGitHubUrl(url) {
   try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return hostname === 'github.com' ||
-      hostname.endsWith('.github.com') ||
-      hostname === 'codeload.github.com' ||
-      hostname === 'raw.githubusercontent.com' ||
-      hostname === 'gist.githubusercontent.com';
+    return LINK_PATTERNS.isGitHubHostname(new URL(url).hostname);
   } catch {
     return false;
   }
@@ -1051,29 +1121,43 @@ function showNotification(tabId, message) {
     func: (msg) => {
       const container = document.createElement('div');
       container.style.cssText = [
-        'position:fixed;top:20px;left:50%;transform:translateX(-50%)',
+        'position:fixed;top:16px;left:50%;transform:translateX(-50%)',
         'z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif',
-        'animation:fadeSlideDown 0.3s ease-out'
+        'animation:ghxToastIn 0.25s cubic-bezier(0.2,0.9,0.3,1)'
       ].join(';');
 
       const card = document.createElement('div');
       card.style.cssText = [
-        'background:#155DFC;color:#fff;padding:16px 28px;border-radius:8px',
-        'font-size:14px;font-weight:500;box-shadow:0 8px 24px rgba(21,93,252,0.35)',
-        'text-align:center;max-width:400px;line-height:1.5;white-space:nowrap'
+        'display:flex;align-items:center;gap:10px;max-width:min(480px,calc(100vw - 32px))',
+        'padding:10px 18px 10px 12px;border-radius:10px',
+        'background:var(--ghx-bg,#ffffff);color:var(--ghx-fg,#1f2328)',
+        'border:1px solid var(--ghx-border,#d0d7de)',
+        'box-shadow:0 8px 24px rgba(31,35,40,0.12)',
+        'font-size:13px;font-weight:500;line-height:1.4;white-space:nowrap'
       ].join(';');
 
-      card.textContent = msg;
+      const dot = document.createElement('span');
+      dot.style.cssText = [
+        'flex:0 0 8px;width:8px;height:8px;border-radius:50%',
+        'background:#155DFC;box-shadow:0 0 0 3px rgba(21,93,252,0.15)'
+      ].join(';');
+
+      card.appendChild(dot);
+      card.appendChild(document.createTextNode(msg));
 
       const style = document.createElement('style');
       style.textContent = [
-        '@keyframes fadeSlideDown{',
-        '  from{opacity:0;transform:translateY(-10px)}',
-        '  to{opacity:1;transform:translateY(0)}',
+        ':root{--ghx-bg:#ffffff;--ghx-fg:#1f2328;--ghx-border:#d0d7de}',
+        '@media (prefers-color-scheme:dark){',
+        '  :root{--ghx-bg:#1f2328;--ghx-fg:#e6edf3;--ghx-border:#3d444d}',
         '}',
-        '@keyframes fadeOut{',
-        '  from{opacity:1}',
-        '  to{opacity:0}',
+        '@keyframes ghxToastIn{',
+        '  from{opacity:0;transform:translate(-50%,-10px) scale(0.96)}',
+        '  to{opacity:1;transform:translate(-50%,0) scale(1)}',
+        '}',
+        '@keyframes ghxToastOut{',
+        '  from{opacity:1;transform:translate(-50%,0)}',
+        '  to{opacity:0;transform:translate(-50%,-8px)}',
         '}'
       ].join('');
 
@@ -1082,8 +1166,9 @@ function showNotification(tabId, message) {
       document.body.appendChild(container);
 
       setTimeout(function () {
-        card.style.animation = 'fadeOut 0.4s ease forwards';
-        setTimeout(function () { container.remove(); }, 400);
+        card.style.animation = 'ghxToastOut 0.3s ease forwards';
+        card.style.transform = 'translate(-50%,-8px)';
+        setTimeout(function () { container.remove(); }, 300);
       }, 2500);
     },
     args: [message]
