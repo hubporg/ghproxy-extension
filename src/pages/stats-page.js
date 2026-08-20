@@ -273,7 +273,7 @@ function renderStats(container, local, cloud, cloudError, privacyAccepted) {
 // 隐私政策链接
 document.getElementById('privacy-link').addEventListener('click', (e) => {
   e.preventDefault();
-  browser.tabs.create({ url: browser.runtime.getURL('privacy.html') });
+  browser.tabs.create({ url: browser.runtime.getURL('src/pages/privacy.html') });
 });
 
 // 触发一次上报并刷新数据

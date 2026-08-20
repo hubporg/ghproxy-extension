@@ -48,7 +48,7 @@ function Create-Zip {
     $archive.Dispose()
 }
 
-$files = @("background.js", "popup.js", "privacy.js", "intercept.js", "browser-polyfill.js", "stats.js", "stats-page.js", "popup.html", "privacy.html", "intercept.html", "stats.html", "manifest.json", "icons", "content", "shared", "README.md", "LICENSE")
+$files = @("src", "manifest.json", "README.md", "LICENSE")
 
 if ($Target -eq 'chrome' -or $Target -eq 'all') {
     # Chrome 打包：直接使用 manifest.json

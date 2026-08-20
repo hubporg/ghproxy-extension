@@ -24,7 +24,7 @@
         "https://api.ip.sb/*"
     ],
     "background": {
-        "service_worker": "background.js",
+        "service_worker": "src/background/background.js",
         "type": "module"
     },
     "content_scripts": [
@@ -36,7 +36,7 @@
                 "*://gist.githubusercontent.com/*"
             ],
             "js": [
-                "content/main-hooks.js"
+                "src/content/main-hooks.js"
             ],
             "run_at": "document_start",
             "all_frames": false,
@@ -50,27 +50,27 @@
                 "*://gist.githubusercontent.com/*"
             ],
             "js": [
-                "shared/link-patterns.js",
-                "content/bridge.js"
+                "src/shared/link-patterns.js",
+                "src/content/bridge.js"
             ],
             "run_at": "document_start",
             "all_frames": false
         }
     ],
     "action": {
-        "default_popup": "popup.html",
+        "default_popup": "src/popup/popup.html",
         "default_title": "GitHub Accelerator: GitHub 文件加速"
     },
     "web_accessible_resources": [
         {
             "resources": [
-                "intercept.html",
-                "intercept.js",
-                "browser-polyfill.js",
-                "privacy.html",
-                "privacy.js",
-                "stats.html",
-                "stats-page.js"
+                "src/pages/intercept.html",
+                "src/pages/intercept.js",
+                "src/lib/browser-polyfill.js",
+                "src/pages/privacy.html",
+                "src/pages/privacy.js",
+                "src/pages/stats.html",
+                "src/pages/stats-page.js"
             ],
             "matches": [
                 "<all_urls>"
@@ -78,8 +78,8 @@
         }
     ],
     "icons": {
-        "16": "icons/icon16.png",
-        "48": "icons/icon48.png",
-        "128": "icons/icon128.png"
+        "16": "src/icons/icon16.png",
+        "48": "src/icons/icon48.png",
+        "128": "src/icons/icon128.png"
     }
 }

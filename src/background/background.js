@@ -1,5 +1,5 @@
-import './browser-polyfill.js';
-import './shared/link-patterns.js';
+import '../lib/browser-polyfill.js';
+import '../shared/link-patterns.js';
 import * as stats from './stats.js';
 
 const LINK_PATTERNS = globalThis.__GHX_LINK_PATTERNS__;
@@ -18,8 +18,8 @@ const CONFIG = {
     'https://www.cloudflare.com/cdn-cgi/trace'
   ],
   INTEGRITY_TEST: {
-    localIcon: 'icons/icon128.png',
-    remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/icons/icon128.png',
+    localIcon: 'src/icons/icon128.png',
+    remoteIconUrl: 'https://raw.githubusercontent.com/hubporg/ghproxy-extension/refs/heads/main/src/icons/icon128.png',
     cloudIconUrl: 'https://hubp.tbedu.top/icons/icon128.png'
   },
 FALLBACK_NODES: [
@@ -638,7 +638,7 @@ async function routeDownload(tabId, url, refererUrl = '') {
 
   // 打开拦截页面
   console.log(`  🚀 打开拦截页面`);
-  const interceptUrl = browser.runtime.getURL('intercept.html') +
+  const interceptUrl = browser.runtime.getURL('src/pages/intercept.html') +
     '?url=' + encodeURIComponent(url) +
     '&accel=' + encodeURIComponent(acceleratedUrl) +
     '&referer=' + encodeURIComponent(refererUrl || '');
@@ -970,7 +970,7 @@ let coreFeaturesStarted = false;
   // 如果从未设置过隐私状态（首次使用或开发者模式加载），自动打开隐私页面
   if (result.privacy_accepted === undefined) {
     console.log('[GitHub Accelerator] 隐私状态未设置，打开隐私政策页面');
-    browser.tabs.create({ url: browser.runtime.getURL('privacy.html') });
+    browser.tabs.create({ url: browser.runtime.getURL('src/pages/privacy.html') });
   }
   checkPrivacyAndStart().catch(console.error);
   // 启动统计定时上报

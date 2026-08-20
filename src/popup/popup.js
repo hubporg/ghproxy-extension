@@ -21,14 +21,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const privacyLink = document.getElementById('privacy-link');
   if (privacyLink) {
     privacyLink.addEventListener('click', () => {
-      browser.tabs.create({ url: browser.runtime.getURL('privacy.html') });
+      browser.tabs.create({ url: browser.runtime.getURL('src/pages/privacy.html') });
     });
   }
 
   const statsLink = document.getElementById('stats-link');
   if (statsLink) {
     statsLink.addEventListener('click', () => {
-      browser.tabs.create({ url: browser.runtime.getURL('stats.html') });
+      browser.tabs.create({ url: browser.runtime.getURL('src/pages/stats.html') });
     });
   }
 

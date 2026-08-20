@@ -9,7 +9,7 @@
  * 数据全部匿名，不收集个人信息。统计行为受用户隐私同意控制。
  */
 
-import './browser-polyfill.js';
+import '../lib/browser-polyfill.js';
 
 const STATS_API_URL = 'https://addon-analytics.hubp.org';
 const STATS_API_FALLBACK_URL = 'https://addon-analytics-hubp.tbedu.top';
