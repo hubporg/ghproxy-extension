@@ -60,8 +60,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 #### Firefox 浏览器
 
 1. 从 [Releases](https://github.com/hubporg/ghproxy-extension/releases) 下载 `.xpi` 文件
-2. 打开浏览器扩展管理页面：`about:debugging#/runtime/this-firefox`
-3. 将 `.xpi` 文件直接拖拽到页面中即可安装
+2. 浏览器会询问你是否安装，点击同意。
 
 ## 🎯 使用指南
 
@@ -82,11 +81,6 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 
 - 在 popup 页面或拦截页面勾选"始终使用加速链接"
 - 访问 GitHub 下载链接时自动跳转，不再显示选择页面
-
-#### 3. 域名偏好模式
-
-- 对特定域名设置始终加速或始终直连
-- 优先级高于全局设置
 
 ### Popup 页面功能
 
@@ -115,7 +109,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 
 ## 🛠️ 技术原理
 
-1. **地理位置检测**：通过 IP API 判断用户是否在中国大陆
+1. **地理位置检测**：通过 CloudFlare Trace/IP API 判断用户是否在中国大陆
 2. **节点测速**：并发测试所有代理节点，选择延迟最低的
 3. **URL 转换**：将 GitHub 原始链接转换为代理加速链接
 4. **页面级拦截**：MAIN world 内容脚本在 `document_start` 注入，捕获阶段 hook `click` 事件与 `HTMLAnchorElement.prototype.click`，先于 IDM 等下载器拿到下载点击；再配合 `webNavigation` API 兜底导航类下载
@@ -128,8 +122,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 - [ ] **油猴脚本版本**
   - 开发 Tampermonkey/Greasemonkey 脚本
   - 无需安装扩展，跨浏览器支持
-- [ ] 下载统计功能
-- [ ] 多语言支持
+- [x] 下载统计功能
 
 ## ⚠️ 注意事项
 
@@ -140,7 +133,7 @@ GitHub Accelerator 是一款智能的浏览器扩展，专为解决中国大陆�
 5. **IDM 用户须知**：
    - 扩展会在页面级优先拦截下载点击，先进入加速选择流程，IDM 不会再直接抓到原始链接
    - 在拦截页面点击"使用加速链接"后，IDM 会弹出下载确认框，此时捕获到的是加速后的链接
-   - **建议启用"始终使用加速链接"选项**，访问 GitHub 下载链接时会自动跳转，IDM 将直接捕获加速链接，避免重复确认，可能小部分时候会弹2次
+   - **建议启用"始终使用加速链接"选项**，访问 GitHub 下载链接时会自动跳转，IDM 将直接捕获加速链接，避免重复确认。~~可能小部分时候会弹2次~~
 
 ## 🤝 贡献指南
 
