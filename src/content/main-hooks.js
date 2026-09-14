@@ -40,7 +40,6 @@
     '*://github.com/*/releases/download/*',
     '*://github.com/*/archive/*',
     '*://github.com/*/raw/*',
-    '*://github.com/*/blob/*',
     '*://codeload.github.com/*',
     '*://raw.githubusercontent.com/*',
     '*://gist.githubusercontent.com/*/raw/*'
