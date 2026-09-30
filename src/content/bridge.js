@@ -53,10 +53,10 @@
       .catch(function () { /* noop */ });
   });
 
-  // 隐私/会话状态变化时同步 arm 状态
+  // 隐私状态变化时同步 arm 状态
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
-    if (changes.privacy_accepted || changes.gh_accelerator_disable_session) {
+    if (changes.privacy_accepted) {
       reloadStateAndArm();
     }
   });

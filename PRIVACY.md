@@ -15,8 +15,6 @@ The extension only stores the following data locally via Browser Storage API:
 | Best proxy node cache      | `storage.local` | Cached optimal proxy node with 2-hour TTL to avoid repeated speed tests      |
 | Proxy node list            | `storage.local` | Cached list of available proxy nodes with latency results                    |
 | Always accelerate toggle   | `storage.local` | User preference to automatically redirect without showing the intercept page |
-| Session disable flag       | `storage.local` | Temporary flag to skip interception for the current session                  |
-| Domain-level preferences   | `storage.local` | Per-domain accelerate/direct preferences set by the user                     |
 | Anonymous usage statistics | `storage.local` | Aggregate counters for acceleration jumps and install counts                 |
 
 ## Data Usage & Storage

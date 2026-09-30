@@ -14,6 +14,7 @@
 
   var URL_PATTERNS = [
     '*://github.com/*/releases/download/*',
+    '*://github.com/*/releases/latest/download/*',
     '*://github.com/*/archive/*',
     '*://github.com/*/raw/*',
     '*://codeload.github.com/*',

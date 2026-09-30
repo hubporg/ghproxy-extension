@@ -56,7 +56,10 @@ function transformUrl(originalUrl) {
     }
 
     if (hostname === 'github.com') {
-      if (pathname.includes('/releases/download/') || pathname.includes('/archive/')) {
+      if (pathname.includes('/releases/download/') ||
+        pathname.includes('/releases/latest/download/') ||
+        pathname.includes('/archive/') ||
+        pathname.includes('/raw/')) {
         return originalUrl;
       }
     }
@@ -591,16 +594,7 @@ async function routeDownload(tabId, url, refererUrl = '') {
   // 核心功能未启用（未同意隐私政策）→ 放行
   if (!coreFeaturesStarted) return 'replay';
 
-  const prefs = await browser.storage.local.get([
-    'gh_accelerator_always_accelerate',
-    'gh_accelerator_disable_session'
-  ]);
-
-  // 会话临时禁用 → 放行
-  if (prefs.gh_accelerator_disable_session) {
-    console.log(`[GitHub Accelerator] 会话临时禁用，放行: ${url}`);
-    return 'replay';
-  }
+  const prefs = await browser.storage.local.get('gh_accelerator_always_accelerate');
 
   // 拦截页「直接访问」写入的跳过期内 → 放行
   const now = Date.now();
@@ -1054,7 +1048,7 @@ function setupContextMenuHandler() {
     const originalUrl = info.linkUrl || info.selectionText;
 
     if (!originalUrl || !isGitHubUrl(originalUrl)) {
-      showNotification(tab.id, '❌ 请选择或右键点击一个 GitHub 链接');
+      showNotification(tab.id, '请选择或右键点击一个 GitHub 链接', 'error');
       return;
     }
 
@@ -1084,15 +1078,15 @@ function setupContextMenuHandler() {
           },
           args: [acceleratedUrl]
         }).then(() => {
-          showNotification(tab.id, '✅ 加速链接已复制到剪贴板！');
+          showNotification(tab.id, '加速链接已复制到剪贴板', 'success');
         }).catch(function () {
-          showNotification(tab.id, '❌ 复制失败');
+          showNotification(tab.id, '复制失败', 'error');
         });
         break;
 
       case 'github-accelerator-open':
         browser.tabs.create({ url: acceleratedUrl });
-        showNotification(tab.id, '⚡ 正在打开加速链接...');
+        showNotification(tab.id, '正在打开加速链接…', 'info');
         break;
     }
   });
@@ -1108,70 +1102,69 @@ function isGitHubUrl(url) {
   }
 }
 
-async function copyToClipboard(text) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    return navigator.clipboard.writeText(text);
-  }
-  throw new Error('当前浏览器不支持剪贴板 API');
-}
-
-function showNotification(tabId, message) {
+function showNotification(tabId, message, type = 'info') {
   browser.scripting.executeScript({
     target: { tabId },
-    func: (msg) => {
-      const container = document.createElement('div');
-      container.style.cssText = [
-        'position:fixed;top:16px;left:50%;transform:translateX(-50%)',
-        'z-index:2147483647;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif',
-        'animation:ghxToastIn 0.25s cubic-bezier(0.2,0.9,0.3,1)'
-      ].join(';');
+    func: (msg, kind) => {
+      const ICONS = {
+        success: '<svg viewBox="0 0 16 16" width="16" height="16" fill="#3fb950" aria-hidden="true"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>',
+        error: '<svg viewBox="0 0 16 16" width="16" height="16" fill="#f85149" aria-hidden="true"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>',
+        info: '<svg viewBox="0 0 16 16" width="16" height="16" fill="#58a6ff" aria-hidden="true"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Zm.75 3.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM7.25 7a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 7.25 7Z"/></svg>'
+      };
 
-      const card = document.createElement('div');
-      card.style.cssText = [
-        'display:flex;align-items:center;gap:10px;max-width:min(480px,calc(100vw - 32px))',
-        'padding:10px 18px 10px 12px;border-radius:10px',
-        'background:var(--ghx-bg,#ffffff);color:var(--ghx-fg,#1f2328)',
-        'border:1px solid var(--ghx-border,#d0d7de)',
-        'box-shadow:0 8px 24px rgba(31,35,40,0.12)',
-        'font-size:13px;font-weight:500;line-height:1.4;white-space:nowrap'
-      ].join(';');
+      if (!document.getElementById('ghx-toast-style')) {
+        const style = document.createElement('style');
+        style.id = 'ghx-toast-style';
+        style.textContent = [
+          '.ghx-toast{display:inline-flex;align-items:center;gap:9px;',
+          'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans",Helvetica,Arial,sans-serif;',
+          'font-size:13px;font-weight:500;line-height:1.35;white-space:nowrap;',
+          'padding:8px 14px 8px 11px;border-radius:6px;',
+          'background:#25292e;color:#f0f6fc;border:1px solid rgba(255,255,255,.16);',
+          'box-shadow:0 3px 12px rgba(31,35,40,.18);',
+          'animation:ghxToastIn .22s cubic-bezier(.16,1,.3,1) both}',
+          '.ghx-toast svg{width:16px;height:16px;flex:0 0 16px}',
+          '.ghx-toast--leave{animation:ghxToastOut .16s ease-in forwards}',
+          '@keyframes ghxToastIn{from{opacity:0;transform:translateY(-10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}',
+          '@keyframes ghxToastOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-6px)}}',
+          '@media (prefers-color-scheme:dark){',
+          '.ghx-toast{background:#f0f6fc;color:#1f2328;border-color:rgba(31,35,40,.15);',
+          'box-shadow:0 6px 24px rgba(1,4,9,.5)}}',
+          '@media (prefers-reduced-motion:reduce){.ghx-toast,.ghx-toast--leave{animation-duration:.01ms}}'
+        ].join('');
+        document.documentElement.appendChild(style);
+      }
 
-      const dot = document.createElement('span');
-      dot.style.cssText = [
-        'flex:0 0 8px;width:8px;height:8px;border-radius:50%',
-        'background:#155DFC;box-shadow:0 0 0 3px rgba(21,93,252,0.15)'
-      ].join(';');
+      let host = document.getElementById('ghx-toast-host');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'ghx-toast-host';
+        host.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column-reverse;align-items:center;gap:10px;pointer-events:none';
+        document.documentElement.appendChild(host);
+      }
 
-      card.appendChild(dot);
-      card.appendChild(document.createTextNode(msg));
+      const toast = document.createElement('div');
+      toast.className = 'ghx-toast';
+      toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+      toast.innerHTML = ICONS[kind] || ICONS.info;
 
-      const style = document.createElement('style');
-      style.textContent = [
-        ':root{--ghx-bg:#ffffff;--ghx-fg:#1f2328;--ghx-border:#d0d7de}',
-        '@media (prefers-color-scheme:dark){',
-        '  :root{--ghx-bg:#1f2328;--ghx-fg:#e6edf3;--ghx-border:#3d444d}',
-        '}',
-        '@keyframes ghxToastIn{',
-        '  from{opacity:0;transform:translate(-50%,-10px) scale(0.96)}',
-        '  to{opacity:1;transform:translate(-50%,0) scale(1)}',
-        '}',
-        '@keyframes ghxToastOut{',
-        '  from{opacity:1;transform:translate(-50%,0)}',
-        '  to{opacity:0;transform:translate(-50%,-8px)}',
-        '}'
-      ].join('');
+      const text = document.createElement('span');
+      text.textContent = msg;
+      toast.appendChild(text);
 
-      container.appendChild(style);
-      container.appendChild(card);
-      document.body.appendChild(container);
+      host.appendChild(toast);
 
       setTimeout(function () {
-        card.style.animation = 'ghxToastOut 0.3s ease forwards';
-        card.style.transform = 'translate(-50%,-8px)';
-        setTimeout(function () { container.remove(); }, 300);
-      }, 2500);
+        toast.classList.add('ghx-toast--leave');
+        const cleanup = function () {
+          toast.remove();
+          if (host.childElementCount === 0) host.remove();
+        };
+        toast.addEventListener('animationend', cleanup, { once: true });
+        setTimeout(cleanup, 400);
+      }, 2200);
     },
-    args: [message]
+    args: [message, type]
   }).catch(err => {
     console.warn('[GitHub Accelerator] 无法显示通知:', err);
   });

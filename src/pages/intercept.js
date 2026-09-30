@@ -34,14 +34,6 @@
   // 地理位置状态
   let isProxyEnabled = null; // null: 检测中，true: 已开启代理，false: 未开启代理
 
-  // 提取域名
-  let currentDomain = '';
-  try {
-    currentDomain = new URL(originalUrl).hostname;
-  } catch (e) {
-    currentDomain = 'github.com';
-  }
-
   // 初始化
   init();
 
@@ -258,7 +250,10 @@
       }
 
       if (hostname === 'github.com') {
-        if (pathname.includes('/releases/download/') || pathname.includes('/archive/')) {
+        if (pathname.includes('/releases/download/') ||
+          pathname.includes('/releases/latest/download/') ||
+          pathname.includes('/archive/') ||
+          pathname.includes('/raw/')) {
           return originalUrl;
         }
       }
@@ -342,35 +337,11 @@
 
     // 未开启代理（大陆用户直连），检查用户偏好
     browser.storage.local.get([
-      'gh_accelerator_always_accelerate',
-      'gh_accelerator_disable_session',
-      'gh_accelerator_domain_preferences'
+      'gh_accelerator_always_accelerate'
     ], (result) => {
       console.log('[Intercept] 用户偏好:', result);
 
-      // 检查是否会话临时禁用
-      if (result.gh_accelerator_disable_session) {
-        console.log('[Intercept] 会话临时禁用，直接访问原始链接');
-        window.location.href = originalUrl;
-        return;
-      }
-
-      // 检查域名特定偏好
-      const preferences = result.gh_accelerator_domain_preferences || {};
-      const domainPref = preferences[currentDomain];
-      console.log('[Intercept] 域名偏好:', domainPref);
-
-      if (domainPref === 'always_accelerate') {
-        console.log('[Intercept] 域名偏好为始终加速，启动倒计时');
-        startCountdown();
-        return;
-      } else if (domainPref === 'always_direct') {
-        console.log('[Intercept] 域名偏好为始终直接访问，跳转到原始链接');
-        window.location.href = originalUrl;
-        return;
-      }
-
-      // 检查全局始终加速
+      // 全局始终加速
       if (result.gh_accelerator_always_accelerate) {
         console.log('[Intercept] 全局始终加速，启动倒计时');
         startCountdown();
@@ -388,7 +359,6 @@
     accelerateBtn.addEventListener('click', (e) => {
       console.log('[Intercept] 用户选择使用加速链接');
       console.log('[Intercept] 加速链接:', acceleratedUrl);
-      saveUserPreferences();
       // 不阻止默认行为，让浏览器自然跳转（IDM 可以捕获）
       // href 已经在 init() 中设置
     });
@@ -409,7 +379,6 @@
     directBtn.addEventListener('click', (e) => {
       console.log('[Intercept] 用户选择直接访问，跳过拦截 10s');
       browser.runtime.sendMessage({ type: 'SKIP_INTERCEPT', url: originalUrl, duration: 10000 });
-      saveUserPreferences();
     });
 
     // 返回按钮点击
@@ -469,8 +438,6 @@
           gh_accelerator_always_accelerate: true
         });
 
-        removeDomainPreference();
-
         console.log('[Intercept] 用户勾选始终加速，跳转到:', acceleratedUrl);
         window.location.href = acceleratedUrl;
       } else {
@@ -524,47 +491,6 @@
         }
       });
     }
-  }
-
-  function saveUserPreferences() {
-    // 这里可以根据需要保存更多状态
-  }
-
-  function showDomainPreferenceDialog() {
-    const choice = confirm('请选择要记住的偏好：\n\n点击"确定"：对该域名始终使用加速链接\n点击"取消"：对该域名始终直接访问');
-
-    if (choice) {
-      // 始终加速
-      saveDomainPreference('always_accelerate');
-      alwaysAccelerateEl.checked = true;
-      startCountdown();
-    } else {
-      // 始终直接访问
-      saveDomainPreference('always_direct');
-      window.location.href = originalUrl;
-    }
-  }
-
-  function saveDomainPreference(preference) {
-    browser.storage.local.get(['gh_accelerator_domain_preferences'], (result) => {
-      const preferences = result.gh_accelerator_domain_preferences || {};
-      preferences[currentDomain] = preference;
-
-      browser.storage.local.set({
-        gh_accelerator_domain_preferences: preferences
-      });
-    });
-  }
-
-  function removeDomainPreference() {
-    browser.storage.local.get(['gh_accelerator_domain_preferences'], (result) => {
-      const preferences = result.gh_accelerator_domain_preferences || {};
-      delete preferences[currentDomain];
-
-      browser.storage.local.set({
-        gh_accelerator_domain_preferences: preferences
-      });
-    });
   }
 
   let countdownTimer = null;
