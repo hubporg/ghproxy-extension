@@ -86,6 +86,7 @@
                 "src/pages/intercept.html",
                 "src/pages/intercept.js",
                 "src/lib/browser-polyfill.js",
+                "src/lib/icons.js",
                 "src/pages/privacy.html",
                 "src/pages/privacy.js",
                 "src/pages/stats.html",

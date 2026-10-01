@@ -176,7 +176,7 @@ function parseGeoLocation(data) {
 }
 
 function logGeoResult(location) {
-  console.log(`[GitHub Accelerator] 是否受 GFW 限制（需代理）: ${location.needProxy ? '✅ 是（中国大陆）' : '❌ 否（可直接访问）'}`);
+  console.log(`[GitHub Accelerator] 是否受 GFW 限制（需代理）: ${location.needProxy ? '[OK] ✅ 是（中国大陆）' : '[FAIL] ❌ 否（可直接访问）'}`);
 }
 
 // 检测用户代理状态
@@ -216,10 +216,10 @@ async function checkProxyStatus() {
 
       if (githubAccessible && latency < 1000) {
         // GitHub 访问很快，可能开启了代理
-        console.log(`[GitHub Accelerator] ✅ 检测到您可能已开启代理（访问延迟：${latency}ms）`);
-        console.log(`[GitHub Accelerator] ℹ️ 如果已开启代理，可以关闭扩展，直接使用代理访问 GitHub`);
+        console.log(`[GitHub Accelerator] [OK] ✅ 检测到您可能已开启代理（访问延迟：${latency}ms）`);
+        console.log(`[GitHub Accelerator] [INFO] ℹ️ 如果已开启代理，可以关闭扩展，直接使用代理访问 GitHub`);
       } else {
-        console.log(`[GitHub Accelerator] ℹ️ 未检测到代理，GitHub 访问延迟：${githubAccessible ? latency + 'ms' : '超时'}`);
+        console.log(`[GitHub Accelerator] [INFO] ℹ️ 未检测到代理，GitHub 访问延迟：${githubAccessible ? latency + 'ms' : '超时'}`);
       }
     }
   } catch (error) {
@@ -263,15 +263,15 @@ async function verifyLocalIntegrity() {
     const cloudHash = await calculateCloudIconHash();
 
     if (!localHash || !cloudHash) {
-      console.warn('[完整性检查] ⚠️ 无法获取哈希，跳过验证');
+      console.warn('[完整性检查] [WARN] ⚠️ 无法获取哈希，跳过验证');
       return { verified: false, useCloudFallback: true };
     }
 
     if (localHash === cloudHash) {
-      console.log('[完整性检查] ✅ 本地文件与云端一致，未被修改');
+      console.log('[完整性检查] [OK] ✅ 本地文件与云端一致，未被修改');
       return { verified: true, hash: localHash };
     } else {
-      console.warn('[完整性检查] ❌ 本地文件已被修改（可能被商店压缩）');
+      console.warn('[完整性检查] [FAIL] ❌ 本地文件已被修改（可能被商店压缩）');
       console.warn(`  本地哈希: ${localHash}`);
       console.warn(`  云端哈希: ${cloudHash}`);
       console.warn('[完整性检查] 将使用云端哈希进行后续节点验证');
@@ -349,14 +349,14 @@ async function verifyRemoteIconHash(proxyUrl) {
     console.log(`[完整性检查] 远程 icon 哈希: ${remoteHash}`);
 
     if (remoteHash === expectedHash) {
-      console.log('[完整性检查] ✅ 验证通过：代理返回内容完整正确');
+      console.log('[完整性检查] [OK] ✅ 验证通过：代理返回内容完整正确');
       return {
         verified: true,
         hash: remoteHash,
         size: arrayBuffer.byteLength
       };
     } else {
-      console.warn('[完整性检查] ❌ 验证失败：哈希不匹配！');
+      console.warn('[完整性检查] [FAIL] ❌ 验证失败：哈希不匹配！');
       console.warn(`  期望: ${expectedHash}${cloudHash ? ' (云端)' : ' (本地)'}`);
       console.warn(`  实际: ${remoteHash}`);
       return {
@@ -443,7 +443,7 @@ async function speedTestNodes(apiNodes, customNodes = [], options = { testCustom
 
   const promises = testNodes.map(node =>
     testSingleNode(node.url).then(result => {
-      console.log(`[GitHub Accelerator] ${node.url}: ${result.latency}ms${result.verified ? ' ✅' : ' ❌'}${node.isCustom ? ' [自定义]' : ''}`);
+      console.log(`[GitHub Accelerator] ${node.url}: ${result.latency}ms${result.verified ? ' [OK] ✅' : ' [FAIL] ❌'}${node.isCustom ? ' [自定义]' : ''}`);
       return {
         ...result,
         isCustom: node.isCustom || false
@@ -531,7 +531,7 @@ async function testSingleNode(proxyUrl) {
     const verified = expectedHash && remoteHash === expectedHash;
 
     if (!verified) {
-      console.warn(`[测速] ⚠️ ${proxyUrl} 哈希验证失败`);
+      console.warn(`[测速] [WARN] ⚠️ ${proxyUrl} 哈希验证失败`);
       console.warn(`  期望: ${expectedHash}${cloudHash ? ' (云端)' : ' (本地)'}`);
       console.warn(`  实际: ${remoteHash}`);
     }
@@ -601,7 +601,7 @@ async function routeDownload(tabId, url, refererUrl = '') {
   const skipExpiry = skipInterceptUrls.get(url);
   if (skipExpiry) {
     if (now < skipExpiry) {
-      console.log(`[GitHub Accelerator] ⏭️ 在跳过期内，不拦截：${url}`);
+      console.log(`[GitHub Accelerator] [SKIP] ⏭️ 在跳过期内，不拦截：${url}`);
       return 'replay';
     }
     skipInterceptUrls.delete(url);
@@ -706,7 +706,7 @@ function setupWebRequestListener() {
     checkProxyStatus();
   });
 
-  console.log('[GitHub Accelerator] ⚠️ tabs.onUpdated 拦截器已禁用（使用 webRequest 代替）');
+  console.log('[GitHub Accelerator] [WARN] ⚠️ tabs.onUpdated 拦截器已禁用（使用 webRequest 代替）');
 
   // 使用 webNavigation 在导航开始前拦截（比 webRequest 更早）
   browser.webNavigation.onBeforeNavigate.addListener((details) => {
@@ -734,7 +734,7 @@ function setupWebRequestListener() {
 
         // 必须是 github.com 或其子域名（排除代理域名）
         if (!LINK_PATTERNS.isGitHubHostname(hostname)) {
-          console.log(`[GitHub Accelerator] ❌ 非 GitHub 域名，跳过`);
+          console.log(`[GitHub Accelerator] [FAIL] ❌ 非 GitHub 域名，跳过`);
           return false;
         }
 
@@ -753,20 +753,20 @@ function setupWebRequestListener() {
       const now = Date.now();
       const skipExpiry = skipInterceptUrls.get(url);
       if (skipExpiry && now < skipExpiry) {
-        console.log(`[GitHub Accelerator] ⏭️ 在跳过期内，不拦截：${url}`);
+        console.log(`[GitHub Accelerator] [SKIP] ⏭️ 在跳过期内，不拦截：${url}`);
         return;
       } else if (skipExpiry && now >= skipExpiry) {
         skipInterceptUrls.delete(url);
       }
 
-      console.log(`\n[GitHub Accelerator] ✅ 开始拦截：${url}`);
+      console.log(`\n[GitHub Accelerator] [OK] ✅ 开始拦截：${url}`);
       routeDownload(details.tabId, url, details.url).catch(err => {
         console.warn('[GitHub Accelerator] 拦截处理失败:', err);
       });
     }
   });
 
-  console.log('[GitHub Accelerator] ✅ webNavigation 拦截器已注册');
+  console.log('[GitHub Accelerator] [OK] ✅ webNavigation 拦截器已注册');
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'REFRESH_NODE') {

@@ -1,4 +1,8 @@
+const GHX_ICON = (name) => `<span class="ghx-icon">${(window.__GHX_ICONS__ && window.__GHX_ICONS__.svg(name)) || ''}</span>`;
+
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window.__GHX_ICONS__) window.__GHX_ICONS__.hydrate();
+
   const nodeSelect = document.getElementById('node-select');
   const latencyBadge = document.getElementById('latency-badge');
   const nodeUrlEl = document.getElementById('node-url');
@@ -65,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusText.textContent = '测速失败';
     } finally {
       speedtestBtn.disabled = false;
-      speedtestBtn.innerHTML = '⚡ 节点测速';
+      speedtestBtn.innerHTML = GHX_ICON('zap') + ' 节点测速';
 
       setTimeout(async () => {
         if (speedtestBtn.disabled === false) {
@@ -84,7 +88,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (url && url !== '-') {
       navigator.clipboard.writeText(url).then(() => {
         const originalText = copyBtn.innerHTML;
-        copyBtn.innerHTML = '✅ 已复制';
+        copyBtn.innerHTML = GHX_ICON('check') + ' 已复制';
         setTimeout(() => {
           copyBtn.innerHTML = originalText;
         }, 1500);
@@ -107,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       locationInfoEl.textContent = '检测失败';
     } finally {
       refreshLocationBtn.disabled = false;
-      refreshLocationBtn.innerHTML = '🌍 重测IP';
+      refreshLocationBtn.innerHTML = GHX_ICON('globe') + ' 重测IP';
     }
   });
 
@@ -140,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       alert('添加失败');
     } finally {
       addCustomNodeBtn.disabled = false;
-      addCustomNodeBtn.textContent = '➕ 添加';
+      addCustomNodeBtn.innerHTML = GHX_ICON('add') + ' 添加';
     }
   });
 
@@ -310,13 +314,13 @@ async function loadCustomNodes() {
       html += `
         <div class="custom-node-item" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
           <span style="flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${node.url}">
-            ⭐ ${domain}
+            ${GHX_ICON('star')} ${domain}
           </span>
           <span style="font-size: 12px; color: ${node.latency > 0 ? (node.latency < 200 ? '#2e7d32' : '#ef6c00') : '#999'};">
             ${latencyStr}
           </span>
-          <button class="edit-custom-node-btn" data-url="${node.url}" style="padding: 4px 8px; font-size: 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">✏️</button>
-          <button class="remove-custom-node-btn" data-url="${node.url}" style="padding: 4px 8px; font-size: 12px; border: 1px solid #ff4444; background: white; color: #ff4444; border-radius: 4px; cursor: pointer;">🗑️</button>
+          <button class="edit-custom-node-btn" data-url="${node.url}" style="padding: 4px 8px; font-size: 12px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer;">${GHX_ICON('edit')}</button>
+          <button class="remove-custom-node-btn" data-url="${node.url}" style="padding: 4px 8px; font-size: 12px; border: 1px solid #ff4444; background: white; color: #ff4444; border-radius: 4px; cursor: pointer;">${GHX_ICON('delete')}</button>
         </div>
       `;
     });
@@ -325,7 +329,7 @@ async function loadCustomNodes() {
 
     document.querySelectorAll('.edit-custom-node-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const oldUrl = e.target.dataset.url;
+        const oldUrl = e.currentTarget.dataset.url;
         const newUrl = prompt('编辑节点URL:', oldUrl);
         if (newUrl && newUrl !== oldUrl && newUrl.startsWith('https://')) {
           await browser.runtime.sendMessage({ type: 'UPDATE_CUSTOM_NODE', oldUrl, newUrl });
@@ -338,7 +342,7 @@ async function loadCustomNodes() {
     document.querySelectorAll('.remove-custom-node-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         if (confirm('确定要删除此自定义节点吗？')) {
-          const url = e.target.dataset.url;
+          const url = e.currentTarget.dataset.url;
           await browser.runtime.sendMessage({ type: 'REMOVE_CUSTOM_NODE', url });
           await loadCustomNodes();
           await loadNodeInfo();
@@ -401,7 +405,7 @@ async function loadLocationInfo() {
       if (loc.needProxy) {
         statusText = 'GFW限制';
         statusColor = '#c62828';
-        tooltip = `IP: ${loc.ip}\n地区: ${countryName}\n状态: 受长城防火墙(GFW)限制\n⚠️ 必须使用代理才能正常访问 GitHub`;
+        tooltip = `IP: ${loc.ip}\n地区: ${countryName}\n状态: 受长城防火墙(GFW)限制\n必须使用代理才能正常访问 GitHub`;
       } else if (loc.isChinaMainland === false && loc.country !== 'unknown') {
         statusText = '可直连';
         statusColor = '#2e7d32';

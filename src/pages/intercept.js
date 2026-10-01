@@ -2,6 +2,9 @@
 (function () {
   'use strict';
 
+  const GHX_ICON = (name) => `<span class="ghx-icon">${(window.__GHX_ICONS__ && window.__GHX_ICONS__.svg(name)) || ''}</span>`;
+  if (window.__GHX_ICONS__) window.__GHX_ICONS__.hydrate();
+
   // 从 URL 参数获取原始链接和加速链接
   const urlParams = new URLSearchParams(window.location.search);
   const originalUrl = urlParams.get('url');
@@ -365,13 +368,13 @@
 
     // 复制按钮
     if (copyOriginalBtn) {
-      copyOriginalBtn.addEventListener('click', () => copyToClipboard(originalUrl, copyOriginalBtn, '📋 复制', '✅ 已复制'));
+      copyOriginalBtn.addEventListener('click', () => copyToClipboard(originalUrl, copyOriginalBtn, GHX_ICON('copy') + ' 复制', GHX_ICON('check') + ' 已复制'));
     }
     if (copyAccelBtn) {
       copyAccelBtn.addEventListener('click', () => {
         const text = accelUrlEl.textContent;
         if (text === '生成中...') return;
-        copyToClipboard(text, copyAccelBtn, '⚡ 复制', '✅ 已复制');
+        copyToClipboard(text, copyAccelBtn, GHX_ICON('zap') + ' 复制', GHX_ICON('check') + ' 已复制');
       });
     }
 
@@ -474,7 +477,7 @@
     if (refreshLocationBtn) {
       refreshLocationBtn.addEventListener('click', async () => {
         refreshLocationBtn.disabled = true;
-        refreshLocationBtn.textContent = '🌍 重新检测中...';
+        refreshLocationBtn.innerHTML = GHX_ICON('refresh') + ' 重新检测中...';
         locationTextEl.textContent = '重新检测中...';
 
         try {
@@ -487,7 +490,7 @@
           locationTextEl.textContent = '检测失败';
         } finally {
           refreshLocationBtn.disabled = false;
-          refreshLocationBtn.textContent = '🌍 重新测试IP地址';
+          refreshLocationBtn.innerHTML = GHX_ICON('globe') + ' 重新测试IP地址';
         }
       });
     }
@@ -554,10 +557,10 @@
     const onSuccess = () => {
       if (!btn) return;
       btn.classList.add('copied');
-      btn.textContent = successText;
+      btn.innerHTML = successText;
       setTimeout(() => {
         btn.classList.remove('copied');
-        btn.textContent = defaultText;
+        btn.innerHTML = defaultText;
       }, 1500);
     };
 

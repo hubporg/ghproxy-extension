@@ -446,6 +446,22 @@
         transform: rotate(360deg);
       }
     }
+    .ghx-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1em;
+      height: 1em;
+      line-height: 0;
+      vertical-align: -0.125em;
+      flex: 0 0 auto;
+    }
+
+    .ghx-icon svg {
+      width: 1em;
+      height: 1em;
+      display: block;
+    }
   </style>
 </head>
 
@@ -458,7 +474,7 @@
     <button id="refresh-location-btn"
       style="margin-top: 10px; padding: 6px 12px; font-size: 12px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 6px; cursor: pointer; display: block; margin-left: auto; margin-right: auto;"
       title="重新测试IP地址">
-      🌍 重新测试IP地址
+      <span class="ghx-icon" data-icon="globe"></span> 重新测试IP地址
     </button>
   </div>
 
@@ -470,7 +486,7 @@
       </div>
 
       <div class="section-label">
-        📍 选择节点：
+        <span class="ghx-icon" data-icon="location"></span> 选择节点：
       </div>
       <div class="node-selector">
         <select id="node-select" class="node-select">
@@ -480,13 +496,13 @@
       </div>
 
       <div class="section-label">
-        📥 下载链接：
+        <span class="ghx-icon" data-icon="download"></span> 下载链接：
       </div>
 
       <div class="link-info">
         <div class="info-label">
           <span>原始链接：</span>
-          <button type="button" class="copy-btn" id="copy-original-btn" title="复制原始链接">📋 复制</button>
+          <button type="button" class="copy-btn" id="copy-original-btn" title="复制原始链接"><span class="ghx-icon" data-icon="copy"></span> 复制</button>
         </div>
         <div class="info-url" id="original-url">加载中...</div>
       </div>
@@ -494,17 +510,17 @@
       <div class="link-info">
         <div class="info-label">
           <span>加速链接：</span>
-          <button type="button" class="copy-btn btn-primary-text" id="copy-accel-btn" title="复制加速链接">⚡ 复制</button>
+          <button type="button" class="copy-btn btn-primary-text" id="copy-accel-btn" title="复制加速链接"><span class="ghx-icon" data-icon="zap"></span> 复制</button>
         </div>
         <div class="info-url" id="accel-url">加载中...</div>
       </div>
 
       <div class="button-group">
         <a href="#" class="btn btn-primary" id="accelerate-btn">
-          ⚡ 使用加速链接
+          <span class="ghx-icon" data-icon="zap"></span> 使用加速链接
         </a>
         <a href="#" class="btn btn-secondary" id="direct-btn">
-          🌐 直接访问
+          <span class="ghx-icon" data-icon="external"></span> 直接访问
         </a>
         <button type="button" class="btn btn-secondary" id="back-btn" style="flex: 0 0 auto; padding: 10px 16px;">
           ← 返回
@@ -516,7 +532,7 @@
       </div>
 
       <div class="options">
-        <div class="option-title">⚙️ 下载偏好设置</div>
+        <div class="option-title"><span class="ghx-icon" data-icon="settings"></span> 下载偏好设置</div>
 
         <div class="option-item">
           <input type="checkbox" id="always-accelerate" />
@@ -530,7 +546,7 @@
       </div>
 
       <div class="notice">
-        <span class="notice-icon">💡</span>
+        <span class="ghx-icon notice-icon" data-icon="tip"></span>
         公益服务，请勿滥用。自动选择最优代理节点加速 GitHub 资源下载。
         <br>
         支持 Releases、Archive、Raw、Code Download 等所有下载场景。
@@ -544,6 +560,7 @@
   </div>
 
   <script src="../lib/browser-polyfill.js"></script>
+  <script src="../lib/icons.js"></script>
   <script src="intercept.js"></script>
 </body>
 

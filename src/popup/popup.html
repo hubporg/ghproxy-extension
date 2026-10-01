@@ -211,6 +211,23 @@
       margin-right: 4px;
     }
 
+    .ghx-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1em;
+      height: 1em;
+      line-height: 0;
+      vertical-align: -0.125em;
+      flex: 0 0 auto;
+    }
+
+    .ghx-icon svg {
+      width: 1em;
+      height: 1em;
+      display: block;
+    }
+
     .footer {
       padding: 16px 24px;
       text-align: center;
@@ -252,7 +269,7 @@
   <div class="content">
     <div class="section">
       <div class="section-label">
-        📍 节点选择：
+        <span class="ghx-icon" data-icon="location"></span> 节点选择：
       </div>
       <div class="node-selector">
         <select id="node-select" class="node-select">
@@ -263,26 +280,26 @@
 
       <div class="button-group">
         <button id="speedtest-btn" class="btn btn-primary">
-          ⚡ 节点测速
+          <span class="ghx-icon" data-icon="zap"></span> 节点测速
         </button>
         <button id="copy-btn" class="btn btn-secondary">
-          📋 复制地址
+          <span class="ghx-icon" data-icon="copy"></span> 复制地址
         </button>
         <button id="refresh-location-btn" class="btn btn-secondary" title="重新测试IP地址">
-          🌍 重测IP
+          <span class="ghx-icon" data-icon="globe"></span> 重测IP
         </button>
       </div>
     </div>
 
     <div class="section">
       <div class="section-label">
-        ✏️ 自定义节点（永久存储，默认置顶）：
+        <span class="ghx-icon" data-icon="edit"></span> 自定义节点（永久存储，默认置顶）：
       </div>
       <div class="custom-node-input" style="display: flex; gap: 8px;">
         <input type="text" id="custom-node-url" placeholder="输入自定义节点URL（如 https://gh.example.com）"
           style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;" />
         <button id="add-custom-node-btn" class="btn btn-primary" style="flex: 0 0 auto; padding: 8px 16px;">
-          ➕ 添加
+          <span class="ghx-icon" data-icon="add"></span> 添加
         </button>
       </div>
       <div id="custom-nodes-list" style="margin-top: 12px;"></div>
@@ -290,7 +307,7 @@
 
     <div class="info-card">
       <div class="info-row">
-        <span class="info-label">🌍 地理位置</span>
+        <span class="info-label"><span class="ghx-icon" data-icon="globe"></span> 地理位置</span>
         <span id="location-info" class="info-value">检测中...</span>
       </div>
       <div class="info-row">
@@ -313,7 +330,7 @@
 
     <div class="section" style="margin-top: 20px;">
       <div class="section-label">
-        ⚙️ 加速设置：
+        <span class="ghx-icon" data-icon="settings"></span> 加速设置：
       </div>
       <div class="option-item" style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
         <input type="checkbox" id="always-accelerate-checkbox" style="width: 18px; height: 18px; cursor: pointer;" />
@@ -327,7 +344,7 @@
     </div>
 
     <div class="notice">
-      <span class="notice-icon">💡</span>
+      <span class="ghx-icon notice-icon" data-icon="tip"></span>
       公益服务，请勿滥用。自动选择最优代理节点加速 GitHub 资源下载。
       <br>
       支持 Releases、Archive、Raw、Code Download 等所有下载场景。
@@ -341,6 +358,7 @@
   </div>
 
   <script src="../lib/browser-polyfill.js"></script>
+  <script src="../lib/icons.js"></script>
   <script src="popup.js"></script>
 </body>
 
