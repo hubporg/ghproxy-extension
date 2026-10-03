@@ -610,30 +610,36 @@ function parseTarget(url) {
   }
 }
 
-async function appendUsageLog(entry) {
-  try {
-    const res = await browser.storage.local.get(USAGE_LOG_KEY);
-    const log = res[USAGE_LOG_KEY] || [];
-    let node = entry.node;
-    if (!node) {
-      const cache = await browser.storage.local.get(CONFIG.CACHE_KEY);
-      node = (cache[CONFIG.CACHE_KEY] && cache[CONFIG.CACHE_KEY].node.url) || '';
-    }
-    const parsed = parseTarget(entry.url || '');
-    log.unshift({
-      ts: Date.now(),
-      type: entry.type || 'unknown',
-      repo: entry.repo || parsed.repo,
-      file: entry.file || parsed.file,
-      url: entry.url || '',
-      node: node || '',
-      ok: entry.ok !== false
-    });
-    if (log.length > USAGE_LOG_MAX) log.length = USAGE_LOG_MAX;
-    await browser.storage.local.set({ [USAGE_LOG_KEY]: log });
-  } catch (e) {
+// 串行化写入：避免并发 read-modify-write 相互覆盖而丢记录
+let usageLogQueue = Promise.resolve();
+
+function appendUsageLog(entry) {
+  usageLogQueue = usageLogQueue.then(() => writeUsageLog(entry)).catch((e) => {
     console.warn('[GitHub Accelerator] 记录使用日志失败:', e);
+  });
+  return usageLogQueue;
+}
+
+async function writeUsageLog(entry) {
+  const res = await browser.storage.local.get(USAGE_LOG_KEY);
+  const log = res[USAGE_LOG_KEY] || [];
+  let node = entry.node;
+  if (!node) {
+    const cache = await browser.storage.local.get(CONFIG.CACHE_KEY);
+    node = (cache[CONFIG.CACHE_KEY] && cache[CONFIG.CACHE_KEY].node.url) || '';
   }
+  const parsed = parseTarget(entry.url || '');
+  log.unshift({
+    ts: Date.now(),
+    type: entry.type || 'unknown',
+    repo: entry.repo || parsed.repo,
+    file: entry.file || parsed.file,
+    url: entry.url || '',
+    node: node || '',
+    ok: entry.ok !== false
+  });
+  if (log.length > USAGE_LOG_MAX) log.length = USAGE_LOG_MAX;
+  await browser.storage.local.set({ [USAGE_LOG_KEY]: log });
 }
 
 // 全局共享：URL 跳过拦截缓存（拦截页「直接访问」写入）与页面点击/导航双通道去重
