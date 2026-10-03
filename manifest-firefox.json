@@ -80,6 +80,10 @@
         "default_popup": "src/popup/popup.html",
         "default_title": "GitHub Accelerator: GitHub 文件加速"
     },
+    "options_ui": {
+        "page": "src/pages/stats.html",
+        "open_in_tab": true
+    },
     "web_accessible_resources": [
         {
             "resources": [
