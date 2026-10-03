@@ -1,12 +1,60 @@
 /**
- * stats-page.js - 统计页面逻辑
- * 展示本地存储和云端聚合数据
+ * stats-page.js - 扩展选项页逻辑
+ * 展示本地数据、云端聚合统计，以及使用记录 / 更新日志 / 关于
  */
 
 const STATS_SUMMARY_URL = 'https://addon-analytics.hubp.org/stats/summary';
 const STATS_FALLBACK_URL = 'https://addon-analytics-hubp.tbedu.top/stats/summary';
 const STATS_COLLECT_URL = 'https://addon-analytics.hubp.org/stats/collect';
 const STATS_COLLECT_FALLBACK_URL = 'https://addon-analytics-hubp.tbedu.top/stats/collect';
+
+const USAGE_KEY = 'gh_accelerator_usage_log';
+
+const TYPE_LABEL = {
+  accelerate: '加速',
+  always: '始终加速',
+  copy: '复制链接',
+  open: '打开链接',
+  unknown: '其他'
+};
+
+const CHANGELOG = [
+  {
+    version: '1.1.1', date: '2026-10', items: [
+      '界面图标统一为 Octicons',
+      '修复 releases/latest 与 raw 链接漏拦',
+      '重写右键提示样式'
+    ]
+  },
+  {
+    version: '1.1.0', date: '2026-08', items: [
+      '新增页面级抗 IDM 绕过拦截',
+      '地理位置检测改用 Cloudflare trace 端点'
+    ]
+  },
+  {
+    version: '1.0.9', date: '2026-07', items: [
+      '优化功能实现，修复右键菜单错误捕获'
+    ]
+  },
+  {
+    version: '1.0.8', date: '2026-06', items: [
+      '新增匿名使用统计功能及配套页面'
+    ]
+  },
+  {
+    version: '1.0', date: '2026-04', items: [
+      '扩展首发，覆盖 Chrome / Edge / Firefox'
+    ]
+  }
+];
+
+const ABOUT_LINKS = [
+  { label: 'GitHub 仓库', href: 'https://github.com/hubporg/ghproxy-extension' },
+  { label: '问题反馈', href: 'https://github.com/hubporg/ghproxy-extension/issues' },
+  { label: '安装教程', href: 'https://www.hubp.org/projects/extension/install' },
+  { label: '项目主页', href: 'https://www.hubp.org/projects/extension' }
+];
 
 /**
  * 手动上报本地 pending 数据（不依赖 background.js 消息）
@@ -63,12 +111,14 @@ async function loadStats() {
       'gh_accelerator_jump_count',
       'gh_accelerator_install_count',
       'privacy_accepted',
+      USAGE_KEY,
     ]);
     const localStats = {
       jumpCount: localResult.gh_accelerator_jump_count || 0,
       installCount: localResult.gh_accelerator_install_count || 0,
     };
     const privacyAccepted = localResult.privacy_accepted === true;
+    const usageLog = localResult[USAGE_KEY] || [];
 
     // 2. 读取云端数据
     let cloudStats = null;
@@ -90,7 +140,7 @@ async function loadStats() {
     }
 
     // 3. 渲染
-    renderStats(contentEl, localStats, cloudStats, cloudError, privacyAccepted);
+    renderStats(contentEl, localStats, cloudStats, cloudError, privacyAccepted, usageLog);
   } catch (err) {
     contentEl.innerHTML = `
       <div class="notice-card error">
@@ -122,7 +172,77 @@ function formatTime(isoString) {
   return `${diffDay} 天前`;
 }
 
-function renderStats(container, local, cloud, cloudError, privacyAccepted) {
+function formatTs(ms) {
+  if (!ms) return '-';
+  const diffMin = Math.floor((Date.now() - ms) / 60000);
+  if (diffMin < 1) return '刚刚';
+  if (diffMin < 60) return `${diffMin} 分钟前`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} 小时前`;
+  const d = new Date(ms);
+  const p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderUsage(log) {
+  if (!log || !log.length) {
+    return `<div class="notice-card"><p>暂无使用记录。加速、复制或打开链接后，这里会显示最近 50 条记录（仅存本机）。</p></div>`;
+  }
+  let rows = '';
+  for (const it of log) {
+    const label = TYPE_LABEL[it.type] || TYPE_LABEL.unknown;
+    // 兼容早期只存 target 的记录
+    const repo = escapeHtml(it.repo || it.target || '-');
+    const file = it.repo ? escapeHtml(it.file || '') : '';
+    const url = escapeHtml(it.url || '');
+    rows += `
+      <div class="usage-item"${url ? ` title="${url}"` : ''}>
+        <span class="usage-badge" data-type="${escapeHtml(it.type || 'unknown')}">${label}</span>
+        <div class="usage-main">
+          <div class="usage-repo">${repo}</div>
+          ${file ? `<div class="usage-file">${file}</div>` : ''}
+        </div>
+        <span class="usage-time">${formatTs(it.ts)}</span>
+      </div>
+    `;
+  }
+  return `
+    <div class="usage-list">${rows}</div>
+    <div style="text-align:center;margin-top:12px;">
+      <button class="btn btn-secondary" data-action="clear-usage">清空记录</button>
+    </div>
+  `;
+}
+
+function renderChangelog() {
+  return CHANGELOG.map(c => `
+    <div class="changelog-item">
+      <div class="changelog-head">
+        <span class="changelog-version">v${c.version}</span>
+        <span class="changelog-date">${c.date}</span>
+      </div>
+      <ul class="changelog-list">
+        ${c.items.map(i => `<li>${escapeHtml(i)}</li>`).join('')}
+      </ul>
+    </div>
+  `).join('');
+}
+
+function renderAbout() {
+  return `<div class="about-links">${ABOUT_LINKS.map(l =>
+    `<a class="btn btn-secondary" href="${l.href}" target="_blank" rel="noreferrer">${l.label}</a>`
+  ).join('')}</div>`;
+}
+
+function renderStats(container, local, cloud, cloudError, privacyAccepted, usageLog) {
   let html = '';
 
   // 隐私状态
@@ -156,6 +276,14 @@ function renderStats(container, local, cloud, cloudError, privacyAccepted) {
       <div class="notice-card">
         <p>以上数据仅存储在本浏览器中，不会单独上传。</p>
       </div>
+    </div>
+  `;
+
+  // 使用记录
+  html += `
+    <div class="section">
+      <div class="section-title">使用记录</div>
+      ${renderUsage(usageLog)}
     </div>
   `;
 
@@ -267,6 +395,22 @@ function renderStats(container, local, cloud, cloudError, privacyAccepted) {
     `;
   }
 
+  // 更新日志
+  html += `
+    <div class="section">
+      <div class="section-title">更新日志</div>
+      <div class="changelog">${renderChangelog()}</div>
+    </div>
+  `;
+
+  // 关于
+  html += `
+    <div class="section">
+      <div class="section-title">关于</div>
+      ${renderAbout()}
+    </div>
+  `;
+
   container.innerHTML = html;
 }
 
@@ -287,7 +431,7 @@ async function refreshAndFlush() {
 loadStats();
 
 // 事件委托：处理动态生成的按钮
-document.getElementById('content').addEventListener('click', (e) => {
+document.getElementById('content').addEventListener('click', async (e) => {
   const btn = e.target instanceof Element ? e.target.closest('[data-action]') : null;
   if (!btn) return;
   const action = btn.dataset.action;
@@ -295,5 +439,10 @@ document.getElementById('content').addEventListener('click', (e) => {
     refreshAndFlush();
   } else if (action === 'retry') {
     loadStats();
+  } else if (action === 'clear-usage') {
+    if (confirm('确定清空本机使用记录吗？')) {
+      await browser.storage.local.set({ [USAGE_KEY]: [] });
+      loadStats();
+    }
   }
 });

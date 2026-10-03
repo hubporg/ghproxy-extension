@@ -584,6 +584,58 @@ async function clearCache() {
   console.log('[GitHub Accelerator] 缓存已清除');
 }
 
+// ============== 使用记录（供选项页展示的本地明细）==============
+const USAGE_LOG_KEY = 'gh_accelerator_usage_log';
+const USAGE_LOG_MAX = 50;
+
+function parseTarget(url) {
+  try {
+    const u = new URL(url);
+    const seg = u.pathname.split('/').filter(Boolean);
+    const host = u.hostname.toLowerCase();
+    let repo;
+    if (host === 'gist.githubusercontent.com') {
+      repo = seg[0] ? `gist/${seg[0]}` : 'gist';
+    } else if (host === 'github.com' || host.endsWith('.github.com') || host === 'raw.githubusercontent.com') {
+      repo = seg.length >= 2 ? `${seg[0]}/${seg[1]}` : (seg[0] || host);
+    } else {
+      repo = host;
+    }
+    const last = seg[seg.length - 1] || '';
+    let file = last ? decodeURIComponent(last) : '';
+    if (!file) file = repo;
+    return { repo, file };
+  } catch (e) {
+    return { repo: '', file: url || '' };
+  }
+}
+
+async function appendUsageLog(entry) {
+  try {
+    const res = await browser.storage.local.get(USAGE_LOG_KEY);
+    const log = res[USAGE_LOG_KEY] || [];
+    let node = entry.node;
+    if (!node) {
+      const cache = await browser.storage.local.get(CONFIG.CACHE_KEY);
+      node = (cache[CONFIG.CACHE_KEY] && cache[CONFIG.CACHE_KEY].node.url) || '';
+    }
+    const parsed = parseTarget(entry.url || '');
+    log.unshift({
+      ts: Date.now(),
+      type: entry.type || 'unknown',
+      repo: entry.repo || parsed.repo,
+      file: entry.file || parsed.file,
+      url: entry.url || '',
+      node: node || '',
+      ok: entry.ok !== false
+    });
+    if (log.length > USAGE_LOG_MAX) log.length = USAGE_LOG_MAX;
+    await browser.storage.local.set({ [USAGE_LOG_KEY]: log });
+  } catch (e) {
+    console.warn('[GitHub Accelerator] 记录使用日志失败:', e);
+  }
+}
+
 // 全局共享：URL 跳过拦截缓存（拦截页「直接访问」写入）与页面点击/导航双通道去重
 let skipInterceptUrls = new Map(); // URL -> 过期时间戳
 let recentlyHandled = new Map();   // `${tabId}:${url}` -> 时间戳
@@ -624,9 +676,10 @@ async function routeDownload(tabId, url, refererUrl = '') {
 
   // 全局「始终加速」→ 直接跳转加速链接
   if (prefs.gh_accelerator_always_accelerate) {
-    console.log(`  🚀 始终加速模式，直接跳转：${acceleratedUrl}`);
+    console.log(`  始终加速模式，直接跳转：${acceleratedUrl}`);
     browser.tabs.update(tabId, { url: acceleratedUrl }).catch(err => console.warn('[GitHub Accelerator] 跳转失败:', err));
     stats.incrementJumpCount().catch(err => console.warn('[Stats] 计数失败:', err));
+    appendUsageLog({ type: 'always', url, node: proxyUrl }).catch(() => { });
     return 'done';
   }
 
@@ -906,6 +959,12 @@ function setupWebRequestListener() {
       return false;
     }
 
+    if (message.type === 'LOG_USAGE') {
+      appendUsageLog(message.entry || {}).catch(() => { });
+      sendResponse({ success: true });
+      return false;
+    }
+
     if (message.type === 'INTERCEPT_DOWNLOAD') {
       const tabId = sender.tab ? sender.tab.id : undefined;
       if (tabId === undefined) {
@@ -1079,6 +1138,7 @@ function setupContextMenuHandler() {
           args: [acceleratedUrl]
         }).then(() => {
           showNotification(tab.id, '加速链接已复制到剪贴板', 'success');
+          appendUsageLog({ type: 'copy', url: originalUrl, node: proxyUrl }).catch(() => { });
         }).catch(function () {
           showNotification(tab.id, '复制失败', 'error');
         });
@@ -1087,6 +1147,7 @@ function setupContextMenuHandler() {
       case 'github-accelerator-open':
         browser.tabs.create({ url: acceleratedUrl });
         showNotification(tab.id, '正在打开加速链接…', 'info');
+        appendUsageLog({ type: 'open', url: originalUrl, node: proxyUrl }).catch(() => { });
         break;
     }
   });

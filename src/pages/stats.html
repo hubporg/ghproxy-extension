@@ -260,6 +260,138 @@
                 transform: rotate(360deg);
             }
         }
+
+        .usage-list {
+            border: 1px solid #eaeaea;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .usage-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            font-size: 13px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .usage-item:last-child {
+            border-bottom: 0;
+        }
+
+        .usage-badge {
+            flex: 0 0 auto;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #eef2ff;
+            color: #155DFC;
+        }
+
+        .usage-badge[data-type="always"] {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .usage-badge[data-type="copy"] {
+            background: #f3f0ff;
+            color: #6f42c1;
+        }
+
+        .usage-badge[data-type="open"] {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .usage-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .usage-repo {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .usage-file {
+            font-size: 12px;
+            color: #888;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .usage-time {
+            flex: 0 0 auto;
+            font-size: 11px;
+            color: #999;
+        }
+
+        .changelog-item {
+            border-left: 2px solid #eaeaea;
+            padding: 0 0 14px 14px;
+            margin-left: 4px;
+            position: relative;
+        }
+
+        .changelog-item:last-child {
+            padding-bottom: 0;
+        }
+
+        .changelog-item::before {
+            content: '';
+            position: absolute;
+            left: -5px;
+            top: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #155DFC;
+        }
+
+        .changelog-head {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .changelog-version {
+            font-weight: 600;
+            font-size: 14px;
+            color: #24292e;
+        }
+
+        .changelog-date {
+            font-size: 11px;
+            color: #999;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+        }
+
+        .changelog-list {
+            margin: 0;
+            padding-left: 16px;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.7;
+        }
+
+        .about-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .about-links .btn {
+            margin-top: 0;
+        }
     </style>
 </head>
 

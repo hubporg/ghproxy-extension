@@ -362,6 +362,7 @@
     accelerateBtn.addEventListener('click', (e) => {
       console.log('[Intercept] 用户选择使用加速链接');
       console.log('[Intercept] 加速链接:', acceleratedUrl);
+      browser.runtime.sendMessage({ type: 'LOG_USAGE', entry: { type: 'accelerate', url: originalUrl } }).catch(() => { });
       // 不阻止默认行为，让浏览器自然跳转（IDM 可以捕获）
       // href 已经在 init() 中设置
     });
@@ -442,6 +443,7 @@
         });
 
         console.log('[Intercept] 用户勾选始终加速，跳转到:', acceleratedUrl);
+        browser.runtime.sendMessage({ type: 'LOG_USAGE', entry: { type: 'accelerate', url: originalUrl } }).catch(() => { });
         window.location.href = acceleratedUrl;
       } else {
         browser.storage.local.remove('gh_accelerator_always_accelerate');
@@ -527,6 +529,8 @@
 
         // 先隐藏倒计时区域
         countdownEl.classList.add('hidden');
+
+        browser.runtime.sendMessage({ type: 'LOG_USAGE', entry: { type: 'accelerate', url: originalUrl } }).catch(() => { });
 
         // 使用 location.href 跳转
         window.location.href = acceleratedUrl;
