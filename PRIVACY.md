@@ -2,7 +2,7 @@
 
 **Last updated: June 6, 2026**
 
-GitHub Accelerator is a browser extension that accelerates GitHub resource downloads through intelligent proxy node selection and 302 redirect, with full compatibility for download managers like IDM.
+GitHub Accelerator is a browser extension that accelerates GitHub resource downloads through intelligent proxy node selection, with full compatibility for download managers like IDM.
 
 ## Data Collection
 
