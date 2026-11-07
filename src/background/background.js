@@ -372,7 +372,8 @@ async function verifyRemoteIconHash(proxyUrl) {
 }
 
 async function fetchProxyNodes() {
-  const response = await fetch(CONFIG.API_URL, {
+  // 时间戳参数绕开中间层缓存，保证每次拿到的节点列表是实时的
+  const response = await fetch(`${CONFIG.API_URL}?t=${Date.now()}`, {
     headers: {
       'Origin': 'https://test.hubp.org'
     }
