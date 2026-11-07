@@ -65,7 +65,9 @@ The permissions declared in the extension manifest are the minimum required to p
 | `https://codeload.github.com/*`            | Intercept GitHub code download links                             |
 | `https://raw.githubusercontent.com/*`      | Intercept GitHub raw file links                                  |
 | `https://gist.githubusercontent.com/*`     | Intercept GitHub Gist file links                                 |
-| `https://hubp.tbedu.top/*`                 | Fetch the list of available proxy nodes from the API             |
+| `https://hubp.tbedu.top/*`                 | Fetch the proxy node list and extension announcements from the API |
+| `https://www.hubp.org/*`                    | Share local node test results and local usage counters with the site (read-only, in-page) |
+| `https://hubp.org/*`                        | Same as above (non-www host)                                     |
 | `https://addon-analytics.hubp.org/*`       | Submit anonymous usage statistics to the aggregation backend     |
 | `https://addon-analytics-hubp.tbedu.top/*` | Submit anonymous usage statistics to the fallback backend        |
 | `https://gh.dpik.top/*`                    | Geographic detection via Cloudflare trace endpoint (own domain)  |
@@ -79,6 +81,7 @@ Network requests made by the extension:
 | Destination                                            | Data Sent                                                                                                 | Purpose                                                |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | `https://hubp.tbedu.top/nodes.json`                    | None (GET request with Origin header)                                                                     | Fetch available proxy node list                        |
+| `https://hubp.tbedu.top/announcements.json`            | None (GET request with a cache-busting timestamp)                                                          | Fetch extension announcements shown in the popup       |
 | `https://addon-analytics.hubp.org/stats/collect`       | Anonymous aggregate count only (e.g., `{ jumps: 1, installs: 0, browser: "chromium", version: "1.0.7" }`) | Submit anonymous usage statistics for aggregation      |
 | `https://addon-analytics-hubp.tbedu.top/stats/collect` | Anonymous aggregate count only (same payload as above)                                                    | Fallback endpoint used when the primary is unreachable |
 | `https://gh.dpik.top/cdn-cgi/trace`        | IP address (used only to determine country, not stored)          | Detect user geographic location (own domain, no third party) |
@@ -89,6 +92,10 @@ Network requests made by the extension:
 | Proxy node URLs (e.g. `gh.dpik.top`)       | None                                                                                                      | Speed test proxy nodes by downloading a test resource  |
 | `https://raw.githubusercontent.com/*`                  | None                                                                                                      | Verify proxy node integrity via hash comparison        |
 
+
+### hubp.org Site Bridge
+
+On hubp.org pages, the extension shares its **local** node speed-test results and local usage counters with the website through in-page messages (`window.postMessage`) so the site can reuse a recent test and show your local contribution. This data stays in the browser: the extension does not send it to any server, and the page cannot read other extension storage or write to it. Counter display follows your local privacy consent setting and disappears when you close the site or uninstall the extension.
 No personal data, browsing history, or user identifiers are included in any network request. Geographic detection is used solely to determine whether the user's region requires proxy acceleration (e.g., GFW-restricted areas) and is not stored or transmitted.
 
 ## Open Source & Contact

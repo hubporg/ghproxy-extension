@@ -20,6 +20,12 @@ const TYPE_LABEL = {
 
 const CHANGELOG = [
   {
+    version: '1.2.0', date: '2026-11', items: [
+      '新增 popup 公告栏，支持等级配色、详情链接与关闭记忆',
+      '官网 hubp.org 可读取本地节点测速结果与使用计数（只读联动）'
+    ]
+  },
+  {
     version: '1.1.1', date: '2026-10', items: [
       '界面图标统一为 Octicons',
       '修复 releases/latest 与 raw 链接漏拦',

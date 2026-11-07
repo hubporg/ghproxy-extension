@@ -466,7 +466,8 @@ async function speedTestNodes(apiNodes, customNodes = [], options = { testCustom
 
     const apiResults = validResults.filter(r => !r.isCustom);
     await browser.storage.local.set({
-      gh_accelerator_node_list: apiResults
+      gh_accelerator_node_list: apiResults,
+      gh_accelerator_node_list_at: Date.now()
     });
 
     const customResults = validResults.filter(r => r.isCustom);

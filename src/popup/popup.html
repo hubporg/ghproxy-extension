@@ -228,6 +228,125 @@
       display: block;
     }
 
+    /* ===== 公告 ===== */
+    .announcement {
+      margin: 14px 16px 0;
+      padding: 12px 14px;
+      border: 1px solid #dbe4f0;
+      border-left: 4px solid #155DFC;
+      border-radius: 8px;
+      background: #f5f8ff;
+    }
+
+    .announcement[hidden] {
+      display: none;
+    }
+
+    .announcement--info {
+      border-color: #dbe4f0;
+      border-left-color: #155DFC;
+      background: #f5f8ff;
+    }
+
+    .announcement--warning {
+      border-color: #ffe0b2;
+      border-left-color: #ef6c00;
+      background: #fff8e1;
+    }
+
+    .announcement--critical {
+      border-color: #ffcdd2;
+      border-left-color: #c62828;
+      background: #ffebee;
+    }
+
+    .announcement-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .announcement-icon {
+      color: #155DFC;
+      font-size: 15px;
+      margin-top: 1px;
+    }
+
+    .announcement--warning .announcement-icon {
+      color: #ef6c00;
+    }
+
+    .announcement--critical .announcement-icon {
+      color: #c62828;
+    }
+
+    .announcement-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.45;
+      color: #1f2937;
+      word-break: break-word;
+    }
+
+    .announcement-close {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: #8a94a6;
+      font-size: 12px;
+      line-height: 0;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .announcement-close:hover {
+      color: #333;
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    .announcement-close[hidden] {
+      display: none;
+    }
+
+    .announcement-content {
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #4b5563;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .announcement-content[hidden] {
+      display: none;
+    }
+
+    .announcement-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #0d4bb5;
+      text-decoration: none;
+    }
+
+    .announcement-link:hover {
+      text-decoration: underline;
+    }
+
+    .announcement-link[hidden] {
+      display: none;
+    }
+
     .footer {
       padding: 16px 24px;
       text-align: center;
@@ -264,6 +383,22 @@
       <span class="normal">Github</span> <span class="highlight">Accelerator</span>
     </div>
     <div class="subtitle">智能 GitHub 下载加速器 · 加速链接模式</div>
+  </div>
+
+  <!-- 公告：异步加载，接口失败/无有效公告时保持 hidden -->
+  <div id="announcement" class="announcement announcement--info" hidden>
+    <div class="announcement-head">
+      <span id="announcement-icon" class="ghx-icon announcement-icon" data-icon="info"></span>
+      <span id="announcement-title" class="announcement-title"></span>
+      <button id="announcement-close" class="announcement-close" type="button" title="关闭公告" aria-label="关闭公告">
+        <span class="ghx-icon" data-icon="close"></span>
+      </button>
+    </div>
+    <div id="announcement-content" class="announcement-content" hidden></div>
+    <a id="announcement-link" class="announcement-link" target="_blank" rel="noopener noreferrer" hidden>
+      <span id="announcement-link-text">查看详情</span>
+      <span class="ghx-icon" data-icon="external"></span>
+    </a>
   </div>
 
   <div class="content">
