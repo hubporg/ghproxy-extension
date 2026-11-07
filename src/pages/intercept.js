@@ -37,6 +37,9 @@
   // 地理位置状态
   let isProxyEnabled = null; // null: 检测中，true: 已开启代理，false: 未开启代理
 
+  // 公告：独立异步加载，失败静默降级，不阻塞拦截页主流程
+  if (window.__GHXAnnouncement) window.__GHXAnnouncement.init({ host: 'announcement-host' });
+
   // 初始化
   init();
 

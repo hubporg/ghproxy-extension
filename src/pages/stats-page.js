@@ -21,7 +21,7 @@ const TYPE_LABEL = {
 const CHANGELOG = [
   {
     version: '1.2.0', date: '2026-11', items: [
-      '新增 popup 公告栏，支持等级配色、详情链接与关闭记忆',
+      '新增公告栏（popup / 下载拦截页 / 统计页共用），支持等级配色、详情链接与关闭记忆',
       '官网 hubp.org 可读取本地节点测速结果与使用计数（只读联动）'
     ]
   },
@@ -435,6 +435,9 @@ async function refreshAndFlush() {
 
 // 初始化
 loadStats();
+
+// 公告：独立异步加载，失败不影响统计页
+if (window.__GHXAnnouncement) window.__GHXAnnouncement.init({ host: 'announcement-host' });
 
 // 事件委托：处理动态生成的按钮
 document.getElementById('content').addEventListener('click', async (e) => {

@@ -86,7 +86,8 @@
                 "src/pages/privacy.html",
                 "src/pages/privacy.js",
                 "src/pages/stats.html",
-                "src/pages/stats-page.js"
+                "src/pages/stats-page.js",
+                "src/shared/announcement.js"
             ],
             "matches": [
                 "<all_urls>"
